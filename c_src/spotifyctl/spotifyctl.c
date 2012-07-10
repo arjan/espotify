@@ -23,6 +23,9 @@ extern const size_t g_appkey_size;
 
 /// The output queue for audo data
 static audio_fifo_t g_audiofifo;
+/// flag for audio initialization
+static int g_audio_initialized = 0;
+
 /// Synchronization mutex for the main thread
 static pthread_mutex_t g_notify_mutex;
 /// Synchronization condition variable for the main thread
@@ -37,12 +40,12 @@ static sp_session *g_sess;
 static sp_playlist *g_spotifyctllist;
 /// Name of the playlist currently being played
 const char *g_listname = "Drive";
-/// Remove tracks flag
-static int g_remove_tracks = 0;
 /// Handle to the curren track
 static sp_track *g_currenttrack;
 /// Index to the next track
 static int g_track_index;
+/// Non-zero when running the playback;
+static int g_running = 0;
 
 
 /**
@@ -52,46 +55,46 @@ static int g_track_index;
  */
 static void try_spotifyctl_start(void)
 {
-	sp_track *t;
+    sp_track *t;
 
-	if (!g_spotifyctllist)
-		return;
+    if (!g_spotifyctllist)
+        return;
 
-	if (!sp_playlist_num_tracks(g_spotifyctllist)) {
-		fprintf(stderr, "spotifyctl: No tracks in playlist. Waiting\n");
-		return;
-	}
+    if (!sp_playlist_num_tracks(g_spotifyctllist)) {
+        fprintf(stderr, "spotifyctl: No tracks in playlist. Waiting\n");
+        return;
+    }
 
-	if (sp_playlist_num_tracks(g_spotifyctllist) < g_track_index) {
-		fprintf(stderr, "spotifyctl: No more tracks in playlist. Waiting\n");
-		return;
-	}
+    if (sp_playlist_num_tracks(g_spotifyctllist) < g_track_index) {
+        fprintf(stderr, "spotifyctl: No more tracks in playlist. Waiting\n");
+        return;
+    }
 
-	t = sp_playlist_track(g_spotifyctllist, g_track_index);
+    t = sp_playlist_track(g_spotifyctllist, g_track_index);
 
-	if (g_currenttrack && t != g_currenttrack) {
-		/* Someone changed the current track */
-		audio_fifo_flush(&g_audiofifo);
-		sp_session_player_unload(g_sess);
-		g_currenttrack = NULL;
-	}
+    if (g_currenttrack && t != g_currenttrack) {
+        /* Someone changed the current track */
+        audio_fifo_flush(&g_audiofifo);
+        sp_session_player_unload(g_sess);
+        g_currenttrack = NULL;
+    }
 
-	if (!t)
-		return;
+    if (!t)
+        return;
 
-	if (sp_track_error(t) != SP_ERROR_OK)
-		return;
+    if (sp_track_error(t) != SP_ERROR_OK)
+        return;
 
-	if (g_currenttrack == t)
-		return;
+    if (g_currenttrack == t)
+        return;
 
-	g_currenttrack = t;
+    g_currenttrack = t;
 
-	printf("spotifyctl: Now playing \"%s\"...\n", sp_track_name(t));
-	fflush(stdout);
+    printf("spotifyctl: Now playing \"%s\"...\n", sp_track_name(t));
+    fflush(stdout);
 
-	sp_session_player_load(g_sess, t);
-	sp_session_player_play(g_sess, 1);
+    sp_session_player_load(g_sess, t);
+    sp_session_player_play(g_sess, 1);
 }
 
 /* --------------------------  PLAYLIST CALLBACKS  ------------------------- */
@@ -107,12 +110,12 @@ static void try_spotifyctl_start(void)
 static void tracks_added(sp_playlist *pl, sp_track * const *tracks,
                          int num_tracks, int position, void *userdata)
 {
-	if (pl != g_spotifyctllist)
-		return;
+    if (pl != g_spotifyctllist)
+        return;
 
-	printf("spotifyctl: %d tracks were added\n", num_tracks);
-	fflush(stdout);
-	try_spotifyctl_start();
+    printf("spotifyctl: %d tracks were added\n", num_tracks);
+    fflush(stdout);
+    try_spotifyctl_start();
 }
 
 /**
@@ -126,20 +129,20 @@ static void tracks_added(sp_playlist *pl, sp_track * const *tracks,
 static void tracks_removed(sp_playlist *pl, const int *tracks,
                            int num_tracks, void *userdata)
 {
-	int i, k = 0;
+    int i, k = 0;
 
-	if (pl != g_spotifyctllist)
-		return;
+    if (pl != g_spotifyctllist)
+        return;
 
-	for (i = 0; i < num_tracks; ++i)
-		if (tracks[i] < g_track_index)
-			++k;
+    for (i = 0; i < num_tracks; ++i)
+        if (tracks[i] < g_track_index)
+            ++k;
 
-	g_track_index -= k;
+    g_track_index -= k;
 
-	printf("spotifyctl: %d tracks were removed\n", num_tracks);
-	fflush(stdout);
-	try_spotifyctl_start();
+    printf("spotifyctl: %d tracks were removed\n", num_tracks);
+    fflush(stdout);
+    try_spotifyctl_start();
 }
 
 /**
@@ -154,12 +157,12 @@ static void tracks_removed(sp_playlist *pl, const int *tracks,
 static void tracks_moved(sp_playlist *pl, const int *tracks,
                          int num_tracks, int new_position, void *userdata)
 {
-	if (pl != g_spotifyctllist)
-		return;
+    if (pl != g_spotifyctllist)
+        return;
 
-	printf("spotifyctl: %d tracks were moved around\n", num_tracks);
-	fflush(stdout);
-	try_spotifyctl_start();
+    printf("spotifyctl: %d tracks were moved around\n", num_tracks);
+    fflush(stdout);
+    try_spotifyctl_start();
 }
 
 /**
@@ -170,28 +173,28 @@ static void tracks_moved(sp_playlist *pl, const int *tracks,
  */
 static void playlist_renamed(sp_playlist *pl, void *userdata)
 {
-	const char *name = sp_playlist_name(pl);
+    const char *name = sp_playlist_name(pl);
 
-	if (!strcasecmp(name, g_listname)) {
-		g_spotifyctllist = pl;
-		g_track_index = 0;
-		try_spotifyctl_start();
-	} else if (g_spotifyctllist == pl) {
-		printf("spotifyctl: current playlist renamed to \"%s\".\n", name);
-		g_spotifyctllist = NULL;
-		g_currenttrack = NULL;
-		sp_session_player_unload(g_sess);
-	}
+    if (!strcasecmp(name, g_listname)) {
+        g_spotifyctllist = pl;
+        g_track_index = 0;
+        try_spotifyctl_start();
+    } else if (g_spotifyctllist == pl) {
+        printf("spotifyctl: current playlist renamed to \"%s\".\n", name);
+        g_spotifyctllist = NULL;
+        g_currenttrack = NULL;
+        sp_session_player_unload(g_sess);
+    }
 }
 
 /**
  * The callbacks we are interested in for individual playlists.
  */
 static sp_playlist_callbacks pl_callbacks = {
-	.tracks_added = &tracks_added,
-	.tracks_removed = &tracks_removed,
-	.tracks_moved = &tracks_moved,
-	.playlist_renamed = &playlist_renamed,
+    .tracks_added = &tracks_added,
+    .tracks_removed = &tracks_removed,
+    .tracks_moved = &tracks_moved,
+    .playlist_renamed = &playlist_renamed,
 };
 
 
@@ -209,12 +212,12 @@ static sp_playlist_callbacks pl_callbacks = {
 static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
                            int position, void *userdata)
 {
-	sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
+    sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-	if (!strcasecmp(sp_playlist_name(pl), g_listname)) {
-		g_spotifyctllist = pl;
-		try_spotifyctl_start();
-	}
+    if (!strcasecmp(sp_playlist_name(pl), g_listname)) {
+        g_spotifyctllist = pl;
+        try_spotifyctl_start();
+    }
 }
 
 /**
@@ -230,7 +233,7 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
                              int position, void *userdata)
 {
-	sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
+    sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
 }
 
 
@@ -243,7 +246,7 @@ static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
  */
 static void container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
-	fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
+    fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
 	    sp_playlistcontainer_num_playlists(pc));
 }
 
@@ -252,9 +255,9 @@ static void container_loaded(sp_playlistcontainer *pc, void *userdata)
  * The playlist container callbacks
  */
 static sp_playlistcontainer_callbacks pc_callbacks = {
-	.playlist_added = &playlist_added,
-	.playlist_removed = &playlist_removed,
-	.container_loaded = &container_loaded,
+    .playlist_added = &playlist_added,
+    .playlist_removed = &playlist_removed,
+    .container_loaded = &container_loaded,
 };
 
 
@@ -266,37 +269,37 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
  */
 static void logged_in(sp_session *sess, sp_error error)
 {
-	sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
-	int i;
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
+    int i;
 
-	if (SP_ERROR_OK != error) {
-		fprintf(stderr, "spotifyctl: Login failed: %s\n",
-			sp_error_message(error));
-		exit(2);
-	}
+    if (SP_ERROR_OK != error) {
+        fprintf(stderr, "spotifyctl: Login failed: %s\n",
+                sp_error_message(error));
+        exit(2);
+    }
 
-	sp_playlistcontainer_add_callbacks(
-		pc,
-		&pc_callbacks,
-		NULL);
+    sp_playlistcontainer_add_callbacks(
+        pc,
+        &pc_callbacks,
+        NULL);
 
-	printf("spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
+    printf("spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
 
-	for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
-		sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
+    for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
+        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
 
-		sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
+        sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-		if (!strcasecmp(sp_playlist_name(pl), g_listname)) {
-			g_spotifyctllist = pl;
-			try_spotifyctl_start();
-		}
-	}
+        if (!strcasecmp(sp_playlist_name(pl), g_listname)) {
+            g_spotifyctllist = pl;
+            try_spotifyctl_start();
+        }
+    }
 
-	if (!g_spotifyctllist) {
-		printf("spotifyctl: No such playlist. Waiting for one to pop up...\n");
-		fflush(stdout);
-	}
+    if (!g_spotifyctllist) {
+        printf("spotifyctl: No such playlist. Waiting for one to pop up...\n");
+        fflush(stdout);
+    }
 }
 
 /**
@@ -309,10 +312,10 @@ static void logged_in(sp_session *sess, sp_error error)
  */
 static void notify_main_thread(sp_session *sess)
 {
-	pthread_mutex_lock(&g_notify_mutex);
-	g_notify_do = 1;
-	pthread_cond_signal(&g_notify_cond);
-	pthread_mutex_unlock(&g_notify_mutex);
+    pthread_mutex_lock(&g_notify_mutex);
+    g_notify_do = 1;
+    pthread_cond_signal(&g_notify_cond);
+    pthread_mutex_unlock(&g_notify_mutex);
 }
 
 /**
@@ -323,39 +326,39 @@ static void notify_main_thread(sp_session *sess)
 static int music_delivery(sp_session *sess, const sp_audioformat *format,
                           const void *frames, int num_frames)
 {
-	audio_fifo_t *af = &g_audiofifo;
-	audio_fifo_data_t *afd;
-	size_t s;
+    audio_fifo_t *af = &g_audiofifo;
+    audio_fifo_data_t *afd;
+    size_t s;
 
-	if (num_frames == 0)
-		return 0; // Audio discontinuity, do nothing
+    if (num_frames == 0)
+        return 0; // Audio discontinuity, do nothing
 
-	pthread_mutex_lock(&af->mutex);
+    pthread_mutex_lock(&af->mutex);
 
-	/* Buffer one second of audio */
-	if (af->qlen > format->sample_rate) {
-		pthread_mutex_unlock(&af->mutex);
+    /* Buffer one second of audio */
+    if (af->qlen > format->sample_rate) {
+        pthread_mutex_unlock(&af->mutex);
 
-		return 0;
-	}
+        return 0;
+    }
 
-	s = num_frames * sizeof(int16_t) * format->channels;
+    s = num_frames * sizeof(int16_t) * format->channels;
 
-	afd = malloc(sizeof(*afd) + s);
-	memcpy(afd->samples, frames, s);
+    afd = malloc(sizeof(*afd) + s);
+    memcpy(afd->samples, frames, s);
 
-	afd->nsamples = num_frames;
+    afd->nsamples = num_frames;
 
-	afd->rate = format->sample_rate;
-	afd->channels = format->channels;
+    afd->rate = format->sample_rate;
+    afd->channels = format->channels;
 
-	TAILQ_INSERT_TAIL(&af->q, afd, link);
-	af->qlen += num_frames;
+    TAILQ_INSERT_TAIL(&af->q, afd, link);
+    af->qlen += num_frames;
 
-	pthread_cond_signal(&af->cond);
-	pthread_mutex_unlock(&af->mutex);
+    pthread_cond_signal(&af->cond);
+    pthread_mutex_unlock(&af->mutex);
 
-	return num_frames;
+    return num_frames;
 }
 
 
@@ -366,11 +369,11 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
  */
 static void end_of_track(sp_session *sess)
 {
-	pthread_mutex_lock(&g_notify_mutex);
-	g_playback_done = 1;
-	g_notify_do = 1;
-	pthread_cond_signal(&g_notify_cond);
-	pthread_mutex_unlock(&g_notify_mutex);
+    pthread_mutex_lock(&g_notify_mutex);
+    g_playback_done = 1;
+    g_notify_do = 1;
+    pthread_cond_signal(&g_notify_cond);
+    pthread_mutex_unlock(&g_notify_mutex);
 }
 
 
@@ -384,7 +387,7 @@ static void end_of_track(sp_session *sess)
  */
 static void metadata_updated(sp_session *sess)
 {
-	try_spotifyctl_start();
+    try_spotifyctl_start();
 }
 
 /**
@@ -395,25 +398,25 @@ static void metadata_updated(sp_session *sess)
  */
 static void play_token_lost(sp_session *sess)
 {
-	audio_fifo_flush(&g_audiofifo);
+    audio_fifo_flush(&g_audiofifo);
 
-	if (g_currenttrack != NULL) {
-		sp_session_player_unload(g_sess);
-		g_currenttrack = NULL;
-	}
+    if (g_currenttrack != NULL) {
+        sp_session_player_unload(g_sess);
+        g_currenttrack = NULL;
+    }
 }
 
 /**
  * The session callbacks
  */
 static sp_session_callbacks session_callbacks = {
-	.logged_in = &logged_in,
-	.notify_main_thread = &notify_main_thread,
-	.music_delivery = &music_delivery,
-	.metadata_updated = &metadata_updated,
-	.play_token_lost = &play_token_lost,
-	.log_message = NULL,
-	.end_of_track = &end_of_track,
+    .logged_in = &logged_in,
+    .notify_main_thread = &notify_main_thread,
+    .music_delivery = &music_delivery,
+    .metadata_updated = &metadata_updated,
+    .play_token_lost = &play_token_lost,
+    .log_message = NULL,
+    .end_of_track = &end_of_track,
 };
 
 /**
@@ -421,14 +424,14 @@ static sp_session_callbacks session_callbacks = {
  * we set it in main() instead.
  */
 static sp_session_config spconfig = {
-	.api_version = SPOTIFY_API_VERSION,
-	.cache_location = "tmp",
-	.settings_location = "tmp",
-	.application_key = g_appkey,
-	.application_key_size = 0, // Set in main()
-	.user_agent = "spotifyctl-spotifyctl-example",
-	.callbacks = &session_callbacks,
-	NULL,
+    .api_version = SPOTIFY_API_VERSION,
+    .cache_location = "tmp",
+    .settings_location = "tmp",
+    .application_key = g_appkey,
+    .application_key_size = 0, // Set in main()
+    .user_agent = "spotifyctl-spotifyctl-example",
+    .callbacks = &session_callbacks,
+    NULL,
 };
 /* -------------------------  END SESSION CALLBACKS  ----------------------- */
 
@@ -440,81 +443,105 @@ static sp_session_config spconfig = {
  */
 static void track_ended(void)
 {
-	int tracks = 0;
+    int tracks = 0;
 
-	if (g_currenttrack) {
-		g_currenttrack = NULL;
-		sp_session_player_unload(g_sess);
-		if (g_remove_tracks) {
-			sp_playlist_remove_tracks(g_spotifyctllist, &tracks, 1);
-		} else {
-			++g_track_index;
-			try_spotifyctl_start();
-		}
-	}
+    if (g_currenttrack) {
+        g_currenttrack = NULL;
+        sp_session_player_unload(g_sess);
+        if (g_running) {
+            ++g_track_index;
+            try_spotifyctl_start();
+        }
+    }
 }
+
+int spotifyctl_stop()
+{
+    if (!g_running) return 0;
+    g_running = 0;
+    return 1;
+}
+
 
 int spotifyctl_run(char *username, char *password)
 {
-	sp_session *sp;
-	sp_error err;
-	int next_timeout = 0;
+    sp_session *sp;
+    sp_error err;
+    int next_timeout = 0;
 
-	audio_init(&g_audiofifo);
+    // reinit
+        
+    if (!g_audio_initialized) {
+        fprintf(stderr, "audio init... \n\r");
+        audio_init(&g_audiofifo);
+        g_audio_initialized = 1;
+    }
 
-	/* Create session */
-	spconfig.application_key_size = g_appkey_size;
+    /* Create session */
+    spconfig.application_key_size = g_appkey_size;
 
-	err = sp_session_create(&spconfig, &sp);
+    fprintf(stderr, "1... \n\r");
+    
+    err = sp_session_create(&spconfig, &sp);
 
-	if (SP_ERROR_OK != err) {
-		fprintf(stderr, "Unable to create session: %s\n",
-			sp_error_message(err));
-		exit(1);
-	}
+    fprintf(stderr, "2... \n\r");
+    
+    if (SP_ERROR_OK != err) {
+        fprintf(stderr, "Unable to create session: %s\n",
+                sp_error_message(err));
+        exit(1);
+    }
 
-	g_sess = sp;
+    g_sess = sp;
 
-	pthread_mutex_init(&g_notify_mutex, NULL);
-	pthread_cond_init(&g_notify_cond, NULL);
+    pthread_mutex_init(&g_notify_mutex, NULL);
+    pthread_cond_init(&g_notify_cond, NULL);
 
-	sp_session_login(sp, username, password, 0, NULL);
-	pthread_mutex_lock(&g_notify_mutex);
+    sp_session_login(sp, username, password, 0, NULL);
 
-	for (;;) {
-		if (next_timeout == 0) {
-			while(!g_notify_do)
-				pthread_cond_wait(&g_notify_cond, &g_notify_mutex);
-		} else {
-			struct timespec ts;
+    pthread_mutex_lock(&g_notify_mutex);
+
+    g_notify_do = 1;
+    g_running = 1;
+
+    while (g_running) {
+        if (next_timeout == 0) {
+            while(!g_notify_do)
+                pthread_cond_wait(&g_notify_cond, &g_notify_mutex);
+        } else {
+            struct timespec ts;
 
 #if _POSIX_TIMERS > 0
-			clock_gettime(CLOCK_REALTIME, &ts);
+            clock_gettime(CLOCK_REALTIME, &ts);
 #else
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			TIMEVAL_TO_TIMESPEC(&tv, &ts);
+            struct timeval tv;
+            gettimeofday(&tv, NULL);
+            TIMEVAL_TO_TIMESPEC(&tv, &ts);
 #endif
-			ts.tv_sec += next_timeout / 1000;
-			ts.tv_nsec += (next_timeout % 1000) * 1000000;
+            ts.tv_sec += next_timeout / 1000;
+            ts.tv_nsec += (next_timeout % 1000) * 1000000;
 
-			pthread_cond_timedwait(&g_notify_cond, &g_notify_mutex, &ts);
-		}
+            pthread_cond_timedwait(&g_notify_cond, &g_notify_mutex, &ts);
+        }
 
-		g_notify_do = 0;
-		pthread_mutex_unlock(&g_notify_mutex);
+        g_notify_do = 0;
+        pthread_mutex_unlock(&g_notify_mutex);
 
-		if (g_playback_done) {
-			track_ended();
-			g_playback_done = 0;
-		}
+        if (g_playback_done) {
+            track_ended();
+            g_playback_done = 0;
+        }
 
-		do {
-			sp_session_process_events(sp, &next_timeout);
-		} while (next_timeout == 0);
+        do {
+            sp_session_process_events(sp, &next_timeout);
+        } while (g_running && (next_timeout == 0));
 
-		pthread_mutex_lock(&g_notify_mutex);
-	}
+        pthread_mutex_lock(&g_notify_mutex);
+    }
 
-	return 0;
+    sp_session_player_unload(g_sess);
+    sp_session_logout(g_sess);
+    sp_session_release(g_sess);
+    
+    return 0;
 }
