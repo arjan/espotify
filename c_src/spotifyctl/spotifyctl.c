@@ -13,8 +13,12 @@
 
 #include "audio.h"
 #include "spotifyctl.h"
+#include "../espotify_async.h"
 
 #define USER_AGENT "espotify"
+
+#define MAX_LINK 1024
+#define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 // see appkey.c
 extern const char g_appkey[];
@@ -46,6 +50,10 @@ typedef struct {
     int track_index;
     // Non-zero when running the main loop
     int running;
+
+    // the pid object for communicating back
+    void *erl_pid;
+    
 } spotifyctl_state;
 
 static spotifyctl_state g_state = {0};
@@ -276,12 +284,30 @@ static void logged_in(sp_session *sess, sp_error error)
     sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
     int i;
 
+    fprintf(stderr, "spotifyctl: error = %d, %d\n", error, error == SP_ERROR_OK);
+
     if (SP_ERROR_OK != error) {
-        fprintf(stderr, "spotifyctl: Login failed: %s\n",
-                sp_error_message(error));
-        exit(2);
+        esp_error_feedback(g_state.erl_pid, "logged_in", sp_error_message(error));
+        //fprintf(stderr, "spotifyctl: Login failed: %s\n", sp_error_message(error));
+        return;
     }
 
+    sp_user *user = sp_session_user(g_state.session);
+    sp_user_add_ref(user);
+
+    sp_link *link = sp_link_create_from_user(user);
+    char link_str[MAX_LINK];
+    sp_link_as_string(link, link_str, MAX_LINK);
+    
+    esp_logged_in_feedback(g_state.erl_pid,
+                           link_str,
+                           sp_user_canonical_name(user),
+                           sp_user_display_name(user));
+
+    sp_link_release(link);
+    sp_user_release(user);
+    
+    return;
     sp_playlistcontainer_add_callbacks(
         pc,
         &pc_callbacks,
@@ -441,40 +467,50 @@ static sp_session_config spconfig = {
 
 int spotifyctl_stop()
 {
-    if (!g_state.running) return 0;
+    pthread_mutex_lock(&g_state.notify_mutex);
+    DBG("stopping...");
     g_state.running = 0;
+    pthread_cond_signal(&g_state.notify_cond);
+    pthread_mutex_unlock(&g_state.notify_mutex);
     return 1;
 }
 
 
-int spotifyctl_run(char *username, char *password)
+int spotifyctl_run(void *erl_pid, char *username, char *password)
 {
     sp_error err;
     int next_timeout = 0;
 
+    // record the pid
+    g_state.erl_pid = erl_pid;
+    
     // reinit
     if (!g_state.audio_initialized) {
         audio_init(&g_state.audiofifo);
         g_state.audio_initialized = 1;
     }
 
-    /* Create session */
-    spconfig.application_key_size = g_appkey_size;
+    if (!g_state.session)
+    {
+        /* Create session */
+        spconfig.application_key_size = g_appkey_size;
 
-    err = sp_session_create(&spconfig, &g_state.session);
+        err = sp_session_create(&spconfig, &g_state.session);
 
-    if (SP_ERROR_OK != err) {
-        fprintf(stderr, "Unable to create session: %s\n",
-                sp_error_message(err));
-        exit(1);
+        if (SP_ERROR_OK != err) {
+            fprintf(stderr, "Unable to create session: %s\n",
+                    sp_error_message(err));
+            exit(1);
+        }
     }
-
     pthread_mutex_init(&g_state.notify_mutex, NULL);
     pthread_cond_init(&g_state.notify_cond, NULL);
     
     sp_session_login(g_state.session, username, password, 0, NULL);
 
     g_state.running = 1; // let's go
+
+    DBG("Enter main loop");
     
     pthread_mutex_lock(&g_state.notify_mutex);
     while (g_state.running) {
@@ -502,21 +538,21 @@ int spotifyctl_run(char *username, char *password)
             }
         }
 
-        // Process libspotify events
-        g_state.notify_events = 0;
-        pthread_mutex_unlock(&g_state.notify_mutex);
+        if (g_state.notify_events) {
+            // Process libspotify events
+            g_state.notify_events = 0;
+            pthread_mutex_unlock(&g_state.notify_mutex);
 
-        do {
-            sp_session_process_events(g_state.session, &next_timeout);
-        } while (g_state.running && next_timeout == 0);
-
-        pthread_mutex_lock(&g_state.notify_mutex);
+            do {
+                sp_session_process_events(g_state.session, &next_timeout);
+            } while (g_state.running && next_timeout == 0);
+            pthread_mutex_lock(&g_state.notify_mutex);
+        }
     }
-    return 0;
+    DBG("Exit main loop");
 
-    //sp_session_player_unload(g_state.session);
-    //sp_session_logout(g_state.session);
-    sp_session_release(g_state.session);
+    sp_session_player_unload(g_state.session);
+    sp_session_logout(g_state.session);
     
     return 0;
 }

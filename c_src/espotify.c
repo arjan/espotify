@@ -24,7 +24,7 @@ typedef struct
 void *run_main_thread(void *data)
 {
     espotify_session *session = (espotify_session *)data;
-    spotifyctl_run(session->username, session->password);
+    spotifyctl_run(&session->pid, session->username, session->password);
     return NULL;
 }
 

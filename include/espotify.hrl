@@ -1,16 +1,9 @@
-
 -record(
-   sp_track,
+   sp_user,
    {
-     is_local :: boolean(),
-     is_starred :: boolean(),
-     artists :: [#sp_artist{}],
-     album :: #sp_album{},
-     track_name :: binary(),
-     duration :: non_neg_integer(),
-     popularity :: non_neg_integer(),
-     disc :: non_neg_integer(),
-     index :: non_neg_integer()
+     link :: string(),
+     canonical_name :: string(),
+     display_name :: string()
    }).
 
 -record(
@@ -29,6 +22,20 @@
      name :: binary(),
      year :: non_neg_integer(),
      type = undefined :: album | single | compilation | unknown
+   }).
+
+-record(
+   sp_track,
+   {
+     is_local :: boolean(),
+     is_starred :: boolean(),
+     artists :: [#sp_artist{}],
+     album :: #sp_album{},
+     track_name :: binary(),
+     duration :: non_neg_integer(),
+     popularity :: non_neg_integer(),
+     disc :: non_neg_integer(),
+     index :: non_neg_integer()
    }).
 
 -record(
