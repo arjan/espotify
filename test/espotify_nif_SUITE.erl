@@ -43,11 +43,12 @@ test_start(C) ->
 
     ok = espotify_nif:start(self(), Username, Password),
     receive
-        {'$spotify_callback', logged_in, #sp_user{canonical_name=Username}} ->
+        {'$spotify_callback', logged_in, {ok, #sp_user{canonical_name=Username}}} ->
             ct:print("Login OK as ~s", [Username]),
             ok;
         R ->
-            ct:print("???, ~p", [R])
+            ct:print("???, ~p", [R]),
+            throw({error, bad_response})
     after
         10000 ->
             throw({error, no_response})

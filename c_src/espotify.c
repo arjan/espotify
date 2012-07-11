@@ -5,6 +5,8 @@
 #include "spotifyctl/spotifyctl.h"
 #include "erl_nif.h"
 
+#define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
+
 #define ATOM_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, s)))
 #define USERNAMEMAX 255
 
@@ -53,7 +55,6 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, priv->session, NULL))
         return enif_make_badarg(env);
-    fprintf(stderr, "starting..\n");
 
     return enif_make_atom(env, "ok");
 }

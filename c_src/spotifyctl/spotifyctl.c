@@ -510,7 +510,7 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
 
     g_state.running = 1; // let's go
 
-    DBG("Enter main loop");
+    //DBG("Enter main loop");
     
     pthread_mutex_lock(&g_state.notify_mutex);
     while (g_state.running) {
@@ -551,9 +551,6 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
     }
     DBG("Exit main loop");
 
-    sp_session_player_unload(g_state.session);
-    sp_session_logout(g_state.session);
-    
     return 0;
 }
             

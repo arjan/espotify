@@ -42,12 +42,16 @@ void esp_logged_in_feedback(void *erl_pid, const char *link, const char *canonic
 
     callback_result(erl_pid,
                     "logged_in",
-                    enif_make_tuple4(
+                    enif_make_tuple2(
                         env,
-                        enif_make_atom(env, "sp_user"),
-                        enif_make_string(env, link, ERL_NIF_LATIN1),
-                        enif_make_string(env, canonical_name, ERL_NIF_LATIN1),
-                        enif_make_string(env, display_name, ERL_NIF_LATIN1)
+                        enif_make_atom(env, "ok"),
+                        enif_make_tuple4(
+                            env,
+                            enif_make_atom(env, "sp_user"),
+                            enif_make_string(env, link, ERL_NIF_LATIN1),
+                            enif_make_string(env, canonical_name, ERL_NIF_LATIN1),
+                            enif_make_string(env, display_name, ERL_NIF_LATIN1)
+                            )
                         )
         );
     enif_clear_env(env);
