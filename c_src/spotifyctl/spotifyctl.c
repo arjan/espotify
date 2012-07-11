@@ -281,17 +281,28 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
  */
 static void logged_in(sp_session *sess, sp_error error)
 {
-    sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
-    int i;
-
-    fprintf(stderr, "spotifyctl: error = %d, %d\n", error, error == SP_ERROR_OK);
-
     if (SP_ERROR_OK != error) {
         esp_error_feedback(g_state.erl_pid, "logged_in", sp_error_message(error));
         //fprintf(stderr, "spotifyctl: Login failed: %s\n", sp_error_message(error));
         return;
     }
+    
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
+    
+    sp_playlistcontainer_add_callbacks(
+        pc,
+        &pc_callbacks,
+        NULL);
 
+    printf("spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
+
+    int i;
+    for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
+        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
+        sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
+    }
+
+    // Make login feedback
     sp_user *user = sp_session_user(g_state.session);
     sp_user_add_ref(user);
 
@@ -306,30 +317,6 @@ static void logged_in(sp_session *sess, sp_error error)
 
     sp_link_release(link);
     sp_user_release(user);
-    
-    return;
-    sp_playlistcontainer_add_callbacks(
-        pc,
-        &pc_callbacks,
-        NULL);
-
-    printf("spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
-
-    for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
-        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
-
-        sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
-
-        if (!strcasecmp(sp_playlist_name(pl), g_state.listname)) {
-            g_state.spotifyctllist = pl;
-            try_spotifyctl_start();
-        }
-    }
-
-    if (!g_state.spotifyctllist) {
-        printf("spotifyctl: No such playlist. Waiting for one to pop up...\n");
-        fflush(stdout);
-    }
 }
 
 /**
