@@ -1,3 +1,8 @@
 *.o
 erl_crash.dump
 ebin/
+logs/
+test/app.config
+test/*.beam
+tmp
+priv/*.so

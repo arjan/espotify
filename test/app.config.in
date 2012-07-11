@@ -1,0 +1,6 @@
+[{espotify,
+  [
+   {username, ""},
+   {password, ""}
+  ]
+ }].

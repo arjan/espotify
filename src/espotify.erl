@@ -1,64 +1,7 @@
 -module(espotify).
+-export([start/0]).
 
--export([
-         start/1,
-         stop/0,
-         login/2,
-         logout/0,
+%% API
 
-         player_load/1,
-         player_prefetch/1,
-         player_play/1,
-         player_seek/1
-        ]).
-
--define(NOT_LOADED, throw({error, "NIF library not loaded"})).
--on_load(init/0).
-
-init() ->
-    SoName = case code:priv_dir(?MODULE) of
-                 {error, bad_name} ->
-                     case filelib:is_dir(filename:join(["..", "priv"])) of
-                         true ->
-                             filename:join(["..", "priv", "espotify_nif"]);
-                         false ->
-                             filename:join(["priv", "espotify_nif"])
-                     end;
-                 Dir ->
-                     filename:join(Dir, "espotify_nif")
-             end,
-    ok = erlang:load_nif(SoName, 0).
-
-%% @doc Start the NIF spotify main loop. Only one spotify session per
-%% VM is supported; this is a limitation of libspotify. The pid given
-%% will receive callback messages.
--spec start(pid()) -> ok | {error, already_started}.
-start(_) ->
-    ?NOT_LOADED.
-
-%% @doc Stop the main loop. No espotify commands can be called after
-%% this.
--spec stop() -> ok | {error, not_started}.
-stop() ->
-    ?NOT_LOADED.
-    
-
--spec login(string(), string()) -> ok.
-login(_, _) ->
-    ?NOT_LOADED.
-
-logout() ->
-    ?NOT_LOADED.
-
-
-player_load(_Track) ->
-    ?NOT_LOADED.
-
-player_prefetch(_Track) ->
-    ?NOT_LOADED.
-
-player_play(_Play) ->
-    ?NOT_LOADED.
-
-player_seek(_Offset) ->
-    ?NOT_LOADED.
+start() ->
+    ok = application:start(espotify).
