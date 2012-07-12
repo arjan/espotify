@@ -32,7 +32,7 @@ void *run_main_thread(void *data)
 
 static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    espotify_private *priv = enif_priv_data(env);
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
 
     if (argc != 3)
         return enif_make_badarg(env);
@@ -42,7 +42,7 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return ATOM_ERROR(env, "already_started");
     }
 
-    priv->session = enif_alloc(sizeof(espotify_session));
+    priv->session = (espotify_session *)enif_alloc(sizeof(espotify_session));
 
     if (!enif_get_local_pid(env, argv[0], &priv->session->pid))
         return enif_make_badarg(env);
@@ -53,7 +53,7 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (enif_get_string(env, argv[2], priv->session->password, USERNAMEMAX, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, priv->session, NULL))
+    if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, (void *)priv->session, NULL))
         return enif_make_badarg(env);
 
     return enif_make_atom(env, "ok");
@@ -62,7 +62,7 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    espotify_private *priv = enif_priv_data(env);
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
         
     if (!priv->session) {
         // No session started
@@ -85,7 +85,7 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    espotify_private* data = enif_alloc(sizeof(espotify_private));
+    espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
 
     data->session = 0;
     

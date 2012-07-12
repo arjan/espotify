@@ -8,7 +8,7 @@
 
 all() ->
     [
-     test_start_bad_login,
+%     test_start_bad_login,
      test_start,
      test_start_again,
      test_stop
@@ -52,7 +52,9 @@ test_start(C) ->
     after
         10000 ->
             throw({error, no_response})
-    end.
+    end,
+    timer:sleep(5000),
+    ok.
 
 
 test_start_again(C) ->

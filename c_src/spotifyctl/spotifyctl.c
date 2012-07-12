@@ -17,6 +17,7 @@
 
 #define USER_AGENT "espotify"
 
+#define MAX_EVENT 255
 #define MAX_LINK 1024
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
@@ -25,11 +26,19 @@ extern const char g_appkey[];
 extern const size_t g_appkey_size;
 
 typedef struct {
+    int event;
+    void *arg1;
+    void *arg2;
+} spotifyctl_event;
+
+
+typedef struct {
+    
     /* The output queue for audo data */
     audio_fifo_t audiofifo;
     /* flag for audio initialization */
     int audio_initialized;
-        
+    
     // Synchronization mutex for the main thread
     pthread_mutex_t notify_mutex;
     // Synchronization condition variable for the main thread
@@ -38,8 +47,6 @@ typedef struct {
     int notify_events;
     // Non-zero when a track has ended and the spotifyctl has not yet started a new one
     int playback_done;
-    // The global session handle
-    sp_session *session;
     // Handle to the playlist currently being played
     sp_playlist *spotifyctllist;
     // Name of the playlist currently being played
@@ -53,6 +60,21 @@ typedef struct {
 
     // the pid object for communicating back
     void *erl_pid;
+
+    spotifyctl_event events[MAX_EVENT];
+    int current_event;
+
+    // The global session handle
+    sp_session *session;
+    // The global user handle
+    sp_user *user;
+    // The playlist container
+    sp_playlistcontainer *playlist_container;
+
+    // The currently playing track
+    sp_track *current_track;
+    // Whether or not we are paused.
+    bool paused;
     
 } spotifyctl_state;
 
@@ -258,8 +280,16 @@ static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
  */
 static void container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
+    DBG("container loaded");
     fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
-	    sp_playlistcontainer_num_playlists(pc));
+            sp_playlistcontainer_num_playlists(pc));
+
+    if (g_state.playlist_container) {
+        sp_playlistcontainer_release(g_state.playlist_container);
+    }
+
+    sp_playlistcontainer_add_ref(pc);
+    g_state.playlist_container = pc;
 }
 
 
@@ -267,8 +297,9 @@ static void container_loaded(sp_playlistcontainer *pc, void *userdata)
  * The playlist container callbacks
  */
 static sp_playlistcontainer_callbacks pc_callbacks = {
-    .playlist_added = &playlist_added,
-    .playlist_removed = &playlist_removed,
+    .playlist_added = 0,//&playlist_added,
+    .playlist_removed = 0,//&playlist_removed,
+    .playlist_moved = 0,//&playlist_removed,
     .container_loaded = &container_loaded,
 };
 
@@ -287,14 +318,15 @@ static void logged_in(sp_session *sess, sp_error error)
         return;
     }
     
-    sp_playlistcontainer *pc = sp_session_playlistcontainer(sess);
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
     
     sp_playlistcontainer_add_callbacks(
         pc,
         &pc_callbacks,
         NULL);
 
-    printf("spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
+    
+    fprintf(stderr, "spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
 
     int i;
     for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
@@ -302,21 +334,20 @@ static void logged_in(sp_session *sess, sp_error error)
         sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
     }
 
+    g_state.user = sp_session_user(g_state.session);
+    sp_user_add_ref(g_state.user);
+    
     // Make login feedback
-    sp_user *user = sp_session_user(g_state.session);
-    sp_user_add_ref(user);
-
-    sp_link *link = sp_link_create_from_user(user);
+    sp_link *link = sp_link_create_from_user(g_state.user);
     char link_str[MAX_LINK];
     sp_link_as_string(link, link_str, MAX_LINK);
     
     esp_logged_in_feedback(g_state.erl_pid,
                            link_str,
-                           sp_user_canonical_name(user),
-                           sp_user_display_name(user));
+                           sp_user_canonical_name(g_state.user),
+                           sp_user_display_name(g_state.user));
 
     sp_link_release(link);
-    sp_user_release(user);
 }
 
 /**
@@ -536,6 +567,15 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
             pthread_mutex_lock(&g_state.notify_mutex);
         }
     }
+
+    // Cleaning up
+    if (g_state.playlist_container) {
+        sp_playlistcontainer_release(g_state.playlist_container);
+    }
+    if (g_state.user) {
+        sp_user_release(g_state.user);
+    }
+
     DBG("Exit main loop");
 
     return 0;
