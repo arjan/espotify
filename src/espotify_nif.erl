@@ -9,7 +9,8 @@
          player_load/1,
          player_prefetch/1,
          player_play/1,
-         player_seek/1
+         player_seek/1,
+         player_unload/0
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -66,4 +67,7 @@ player_play(_Play) ->
     ?NOT_LOADED.
 
 player_seek(_Offset) ->
+    ?NOT_LOADED.
+
+player_unload() ->
     ?NOT_LOADED.

@@ -30,7 +30,8 @@ void *run_main_thread(void *data)
     return NULL;
 }
 
-static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, 
+                                   const ERL_NIF_TERM argv[])
 {
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
 
@@ -70,7 +71,8 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     void *resp;
-    if (!spotifyctl_stop())
+    char *error_msg;
+    if (spotifyctl_do_cmd0(CMD_STOP, &error_msg))
         return enif_make_badarg(env);
 
     // wait for spotify thread to exit
@@ -102,6 +104,11 @@ static ErlNifFunc nif_funcs[] =
 {
     {"start", 3, espotify_start},
     {"stop", 0, espotify_stop}
+    /* {"player_load", 1, espotify_player_load}, */
+    /* {"player_prefetch", 1, espotify_player_prefetch}, */
+    /* {"player_play", 1, espotify_player_play}, */
+    /* {"player_seek", 1, espotify_player_seek}, */
+    /* {"player_unload", 0, espotify_player_unload} */
 };
 
 ERL_NIF_INIT(espotify_nif,nif_funcs,load,NULL,NULL,unload)

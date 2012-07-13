@@ -8,9 +8,10 @@
 
 all() ->
     [
-%     test_start_bad_login,
+     test_start_bad_login,
      test_start,
      test_start_again,
+%     test_play,
      test_stop
     ].
 
@@ -43,8 +44,8 @@ test_start(C) ->
 
     ok = espotify_nif:start(self(), Username, Password),
     receive
-        {'$spotify_callback', logged_in, {ok, #sp_user{canonical_name=Username}}} ->
-            ct:print("Login OK as ~s", [Username]),
+        {'$spotify_callback', logged_in, {ok, U=#sp_user{canonical_name=Username}}} ->
+            ct:print("Login OK as ~s", [U#sp_user.link]),
             ok;
         R ->
             ct:print("???, ~p", [R]),
@@ -53,7 +54,6 @@ test_start(C) ->
         10000 ->
             throw({error, no_response})
     end,
-    timer:sleep(5000),
     ok.
 
 
@@ -62,6 +62,14 @@ test_start_again(C) ->
     Password = proplists:get_value(password, C),
     {error, already_started} = espotify_nif:start(self(), Username, Password).
 
+
+test_play(_) ->
+    
+    ok = espotify_nif:player_load(""),
+    ok = espotify_nif:player_play(true),
+    timer:sleep(3000),
+    ok.
+    
 
 test_stop(_) ->
     ok = espotify_nif:stop(),

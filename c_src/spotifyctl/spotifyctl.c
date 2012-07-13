@@ -17,19 +17,12 @@
 
 #define USER_AGENT "espotify"
 
-#define MAX_EVENT 255
 #define MAX_LINK 1024
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 // see appkey.c
 extern const char g_appkey[];
 extern const size_t g_appkey_size;
-
-typedef struct {
-    int event;
-    void *arg1;
-    void *arg2;
-} spotifyctl_event;
 
 
 typedef struct {
@@ -43,6 +36,7 @@ typedef struct {
     pthread_mutex_t notify_mutex;
     // Synchronization condition variable for the main thread
     pthread_cond_t notify_cond;
+
     // Synchronization variable telling the main thread to process events
     int notify_events;
     // Non-zero when a track has ended and the spotifyctl has not yet started a new one
@@ -61,9 +55,6 @@ typedef struct {
     // the pid object for communicating back
     void *erl_pid;
 
-    spotifyctl_event events[MAX_EVENT];
-    int current_event;
-
     // The global session handle
     sp_session *session;
     // The global user handle
@@ -75,6 +66,20 @@ typedef struct {
     sp_track *current_track;
     // Whether or not we are paused.
     bool paused;
+
+    // the current command
+    char cmd;
+    void *cmd_arg1;
+    void *cmd_arg2;
+
+    int cmd_result;
+    char **cmd_error_msg;
+
+    // Synchronization mutex for the result thread
+    pthread_mutex_t result_mutex;
+    // Synchronization condition variable for the result thread
+    pthread_cond_t result_cond;
+
     
 } spotifyctl_state;
 
@@ -482,16 +487,24 @@ static sp_session_config spconfig = {
 
 
 
-
-int spotifyctl_stop()
+int spotifyctl_do_cmd0(char cmd, char **error_msg)
 {
     pthread_mutex_lock(&g_state.notify_mutex);
-    DBG("stopping...");
-    g_state.running = 0;
+    g_state.cmd = cmd;
     pthread_cond_signal(&g_state.notify_cond);
     pthread_mutex_unlock(&g_state.notify_mutex);
-    return 1;
+    
+    int cmd_result;
+    pthread_mutex_lock(&g_state.result_mutex);
+    pthread_cond_wait(&g_state.result_cond, &g_state.result_mutex);
+    cmd_result = g_state.cmd_result;
+    error_msg = g_state.cmd_error_msg;
+    pthread_mutex_unlock(&g_state.result_mutex);
+    return cmd_result;
 }
+
+//int spotifyctl_do_cmd1(spotifyctl_cmd cmd, void *arg1, char **error_msg);
+//int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
 
 
 int spotifyctl_run(void *erl_pid, char *username, char *password)
@@ -523,6 +536,9 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
     }
     pthread_mutex_init(&g_state.notify_mutex, NULL);
     pthread_cond_init(&g_state.notify_cond, NULL);
+
+    pthread_mutex_init(&g_state.result_mutex, NULL);
+    pthread_cond_init(&g_state.result_cond, NULL);
     
     sp_session_login(g_state.session, username, password, 0, NULL);
 
@@ -533,7 +549,7 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
     pthread_mutex_lock(&g_state.notify_mutex);
     while (g_state.running) {
         if (next_timeout == 0) {
-            while(g_state.running && !g_state.notify_events)
+            while(!g_state.cmd && !g_state.notify_events)
                 pthread_cond_wait(&g_state.notify_cond, &g_state.notify_mutex);
         } else {
             struct timespec ts;
@@ -549,7 +565,7 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
             ts.tv_sec += next_timeout / 1000;
             ts.tv_nsec += (next_timeout % 1000) * 1000000;
 
-            while(g_state.running && !g_state.notify_events)
+            while(!g_state.cmd && !g_state.notify_events)
             {
                 if(pthread_cond_timedwait(&g_state.notify_cond, &g_state.notify_mutex, &ts))
                     break;
@@ -564,6 +580,28 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
             do {
                 sp_session_process_events(g_state.session, &next_timeout);
             } while (g_state.running && next_timeout == 0);
+            pthread_mutex_lock(&g_state.notify_mutex);
+        }
+        else if (g_state.cmd) {
+            // Process nif commands
+            char cmd = g_state.cmd;
+            g_state.cmd = 0;
+            pthread_mutex_unlock(&g_state.notify_mutex);
+
+            g_state.cmd_result = CMD_RESULT_OK;
+            g_state.cmd_error_msg = 0;
+
+            switch (cmd)
+            {
+            case CMD_STOP:
+                g_state.running = 0;
+                break;
+            default:
+                fprintf(stderr, "Unknown client command: %d\n\r", cmd);
+                break;
+            }
+            pthread_cond_signal(&g_state.result_cond);
+
             pthread_mutex_lock(&g_state.notify_mutex);
         }
     }
