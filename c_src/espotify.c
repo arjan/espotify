@@ -8,7 +8,10 @@
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 #define ATOM_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, s)))
+#define STR_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), (s?enif_make_string(env, s, ERL_NIF_LATIN1):enif_make_atom(env, "unknown_error"))))
 #define USERNAMEMAX 255
+#define MAX_LINK 1024
+#define MAX_ATOM 1024
 
 typedef struct  {
     char username[USERNAMEMAX];
@@ -22,6 +25,7 @@ typedef struct
     espotify_session *session;
 } espotify_private;
 
+ErlNifPid return_pid;
 
 void *run_main_thread(void *data)
 {
@@ -85,6 +89,77 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return enif_make_atom(env, "ok");
 }
 
+
+static ERL_NIF_TERM espotify_set_pid(ErlNifEnv* env, int argc, 
+                                   const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+
+    if (!priv->session) {
+        return ATOM_ERROR(env, "not_started");
+    }
+
+    if (!enif_get_local_pid(env, argv[0], &priv->session->pid))
+        return enif_make_badarg(env);
+
+    spotifyctl_set_pid(&priv->session->pid);
+
+    return enif_make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM espotify_player_load(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (!priv->session) {
+        // No session started
+        return ATOM_ERROR(env, "not_started");
+    }
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    switch (spotifyctl_do_cmd1(CMD_PLAYER_LOAD, (void *)link, &error_msg)) {
+    case CMD_RESULT_ERROR:
+        return STR_ERROR(env, error_msg);
+    case CMD_RESULT_LOADING:
+        return enif_make_atom(env, "loading");
+    }
+    return enif_make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM espotify_player_prefetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_atom(env, "error");
+}
+
+static ERL_NIF_TERM espotify_player_play(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    char atom[MAX_ATOM];
+
+   if (!enif_get_atom(env, argv[0], atom, MAX_ATOM, ERL_NIF_LATIN1))
+        return enif_make_badarg(env);
+
+    int play = strcmp(atom, "true") == 0;
+
+    char *error_msg;
+    spotifyctl_do_cmd1(CMD_PLAYER_PLAY, (void *)&play, &error_msg);
+    return enif_make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM espotify_player_seek(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_atom(env, "error");
+}
+
+static ERL_NIF_TERM espotify_player_unload(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_atom(env, "error");
+}
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
@@ -97,18 +172,20 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
+    DBG("UNLOAD!!!!");
 //    enif_free(priv_data);
 }
 
 static ErlNifFunc nif_funcs[] =
 {
     {"start", 3, espotify_start},
-    {"stop", 0, espotify_stop}
-    /* {"player_load", 1, espotify_player_load}, */
-    /* {"player_prefetch", 1, espotify_player_prefetch}, */
-    /* {"player_play", 1, espotify_player_play}, */
-    /* {"player_seek", 1, espotify_player_seek}, */
-    /* {"player_unload", 0, espotify_player_unload} */
+    {"stop", 0, espotify_stop},
+    {"set_pid", 1, espotify_set_pid},
+    {"player_load", 1, espotify_player_load},
+    {"player_prefetch", 1, espotify_player_prefetch},
+    {"player_play", 1, espotify_player_play},
+    {"player_seek", 1, espotify_player_seek},
+    {"player_unload", 0, espotify_player_unload}
 };
 
 ERL_NIF_INIT(espotify_nif,nif_funcs,load,NULL,NULL,unload)

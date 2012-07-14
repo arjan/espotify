@@ -3,8 +3,7 @@
 -export([
          start/3,
          stop/0,
-         login/2,
-         logout/0,
+         set_pid/1,
 
          player_load/1,
          player_prefetch/1,
@@ -48,14 +47,8 @@ start(_, _, _) ->
 stop() ->
     ?NOT_LOADED.
     
-
--spec login(string(), string()) -> ok.
-login(_, _) ->
+set_pid(_) ->
     ?NOT_LOADED.
-
-logout() ->
-    ?NOT_LOADED.
-
 
 player_load(_Track) ->
     ?NOT_LOADED.

@@ -1,5 +1,9 @@
 #include "erl_nif.h"
 #include <string.h> /* strncpy */
+#include <stdarg.h> /* va_* */
+#include <stdio.h> /* fprintf */
+
+#define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 ErlNifEnv *ensure_env()
 {
@@ -9,16 +13,34 @@ ErlNifEnv *ensure_env()
     return env;
 }
 
+void esp_debug(void *erl_pid)
+{
+    ErlNifEnv* env = ensure_env();
+    fprintf(stderr, "debug send to: %p\n", erl_pid);
+    if (!enif_send(NULL, 
+                   (ErlNifPid *)erl_pid, 
+                   env,
+                   enif_make_atom(env, "debug")))
+    {
+        fprintf(stderr, "error sending debug.... :-/\n");
+    }
+}
+
 void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
 {
     ErlNifEnv* env = ensure_env();
-    enif_send(NULL, (ErlNifPid *)erl_pid, env,
-              enif_make_tuple3(
-                  env,
-                  enif_make_atom(env, "$spotify_callback"),
-                  enif_make_atom(env, callback_name),
-                  term)
-        );
+    fprintf(stderr, "send to: %p\n", erl_pid);
+    if (!enif_send(NULL, 
+                   (ErlNifPid *)erl_pid, 
+                   env,
+                   enif_make_tuple3(
+                       env,
+                       enif_make_atom(env, "$spotify_callback"),
+                       enif_make_atom(env, callback_name),
+                       term)
+            )) {
+        fprintf(stderr, "error sending.... :-/\n");
+    }
 }
 
 void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
@@ -56,3 +78,17 @@ void esp_logged_in_feedback(void *erl_pid, const char *link, const char *canonic
         );
     enif_clear_env(env);
 }
+
+void esp_player_load_feedback(void *erl_pid) 
+{
+    ErlNifEnv* env = ensure_env();
+    callback_result(erl_pid,
+                    "player_load",
+                    enif_make_atom(
+                        env,
+                        "loaded"
+                        )
+        );
+    enif_clear_env(env);
+}
+

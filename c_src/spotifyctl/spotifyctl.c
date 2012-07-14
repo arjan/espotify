@@ -41,14 +41,7 @@ typedef struct {
     int notify_events;
     // Non-zero when a track has ended and the spotifyctl has not yet started a new one
     int playback_done;
-    // Handle to the playlist currently being played
-    sp_playlist *spotifyctllist;
-    // Name of the playlist currently being played
-    char *listname;
-    // Handle to the curren track
-    sp_track *currenttrack;
-    // Index to the next track
-    int track_index;
+
     // Non-zero when running the main loop
     int running;
 
@@ -64,6 +57,8 @@ typedef struct {
 
     // The currently playing track
     sp_track *current_track;
+    // Currently loading track for player_load()
+    sp_track *player_load_track;
     // Whether or not we are paused.
     bool paused;
 
@@ -92,49 +87,6 @@ static spotifyctl_state g_state = {0};
  *
  * The function simply starts playing the first track of the playlist.
  */
-static void try_spotifyctl_start(void)
-{
-    sp_track *t;
-
-    if (!g_state.spotifyctllist)
-        return;
-
-    if (!sp_playlist_num_tracks(g_state.spotifyctllist)) {
-        fprintf(stderr, "spotifyctl: No tracks in playlist. Waiting\n");
-        return;
-    }
-
-    if (sp_playlist_num_tracks(g_state.spotifyctllist) < g_state.track_index) {
-        fprintf(stderr, "spotifyctl: No more tracks in playlist. Waiting\n");
-        return;
-    }
-
-    t = sp_playlist_track(g_state.spotifyctllist, g_state.track_index);
-
-    if (g_state.currenttrack && t != g_state.currenttrack) {
-        /* Someone changed the current track */
-        audio_fifo_flush(&g_state.audiofifo);
-        sp_session_player_unload(g_state.session);
-        g_state.currenttrack = NULL;
-    }
-
-    if (!t)
-        return;
-
-    if (sp_track_error(t) != SP_ERROR_OK)
-        return;
-
-    if (g_state.currenttrack == t)
-        return;
-
-    g_state.currenttrack = t;
-
-    printf("spotifyctl: Now playing \"%s\"...\n", sp_track_name(t));
-    fflush(stdout);
-
-    sp_session_player_load(g_state.session, t);
-    sp_session_player_play(g_state.session, 1);
-}
 
 /* --------------------------  PLAYLIST CALLBACKS  ------------------------- */
 /**
@@ -149,12 +101,6 @@ static void try_spotifyctl_start(void)
 static void tracks_added(sp_playlist *pl, sp_track * const *tracks,
                          int num_tracks, int position, void *userdata)
 {
-    if (pl != g_state.spotifyctllist)
-        return;
-
-    printf("spotifyctl: %d tracks were added\n", num_tracks);
-    fflush(stdout);
-    try_spotifyctl_start();
 }
 
 /**
@@ -168,20 +114,6 @@ static void tracks_added(sp_playlist *pl, sp_track * const *tracks,
 static void tracks_removed(sp_playlist *pl, const int *tracks,
                            int num_tracks, void *userdata)
 {
-    int i, k = 0;
-
-    if (pl != g_state.spotifyctllist)
-        return;
-
-    for (i = 0; i < num_tracks; ++i)
-        if (tracks[i] < g_state.track_index)
-            ++k;
-
-    g_state.track_index -= k;
-
-    printf("spotifyctl: %d tracks were removed\n", num_tracks);
-    fflush(stdout);
-    try_spotifyctl_start();
 }
 
 /**
@@ -196,12 +128,6 @@ static void tracks_removed(sp_playlist *pl, const int *tracks,
 static void tracks_moved(sp_playlist *pl, const int *tracks,
                          int num_tracks, int new_position, void *userdata)
 {
-    if (pl != g_state.spotifyctllist)
-        return;
-
-    printf("spotifyctl: %d tracks were moved around\n", num_tracks);
-    fflush(stdout);
-    try_spotifyctl_start();
 }
 
 /**
@@ -212,18 +138,6 @@ static void tracks_moved(sp_playlist *pl, const int *tracks,
  */
 static void playlist_renamed(sp_playlist *pl, void *userdata)
 {
-    const char *name = sp_playlist_name(pl);
-
-    if (!strcasecmp(name, g_state.listname)) {
-        g_state.spotifyctllist = pl;
-        g_state.track_index = 0;
-        try_spotifyctl_start();
-    } else if (g_state.spotifyctllist == pl) {
-        printf("spotifyctl: current playlist renamed to \"%s\".\n", name);
-        g_state.spotifyctllist = NULL;
-        g_state.currenttrack = NULL;
-        sp_session_player_unload(g_state.session);
-    }
 }
 
 /**
@@ -251,12 +165,6 @@ static sp_playlist_callbacks pl_callbacks = {
 static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
                            int position, void *userdata)
 {
-    sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
-
-    if (!strcasecmp(sp_playlist_name(pl), g_state.listname)) {
-        g_state.spotifyctllist = pl;
-        try_spotifyctl_start();
-    }
 }
 
 /**
@@ -319,10 +227,9 @@ static void logged_in(sp_session *sess, sp_error error)
 {
     if (SP_ERROR_OK != error) {
         esp_error_feedback(g_state.erl_pid, "logged_in", sp_error_message(error));
-        //fprintf(stderr, "spotifyctl: Login failed: %s\n", sp_error_message(error));
         return;
     }
-    
+
     sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
     
     sp_playlistcontainer_add_callbacks(
@@ -440,7 +347,15 @@ static void end_of_track(sp_session *sess)
  */
 static void metadata_updated(sp_session *sess)
 {
-    try_spotifyctl_start();
+    if (g_state.player_load_track && 
+        sp_track_is_loaded(g_state.player_load_track)) {
+        //fprintf(stderr, "%s\n", sp_track_name(g_state.player_load_track));
+        sp_session_player_load(g_state.session, g_state.player_load_track);
+        sp_track_release(g_state.player_load_track);
+        g_state.player_load_track = 0;
+        esp_player_load_feedback(g_state.erl_pid);
+        return;
+    }
 }
 
 /**
@@ -453,9 +368,9 @@ static void play_token_lost(sp_session *sess)
 {
     audio_fifo_flush(&g_state.audiofifo);
 
-    if (g_state.currenttrack != NULL) {
+    if (g_state.current_track != NULL) {
         sp_session_player_unload(g_state.session);
-        g_state.currenttrack = NULL;
+        g_state.current_track = NULL;
     }
 }
 
@@ -474,8 +389,8 @@ static sp_session_callbacks session_callbacks = {
 
 static sp_session_config spconfig = {
 	.api_version = SPOTIFY_API_VERSION,
-	.cache_location = "tmp",
-	.settings_location = "tmp",
+	.cache_location = "/tmp/test",
+	.settings_location = "/tmp/test",
 	.application_key = g_appkey,
 	.application_key_size = 0, // Set in main()
 	.user_agent = "spotify-jukebox-example",
@@ -485,35 +400,98 @@ static sp_session_config spconfig = {
 
 /* -------------------------  END SESSION CALLBACKS  ----------------------- */
 
-
+int wait_for_cmd_result()
+{
+    int cmd_result;
+    pthread_mutex_lock(&g_state.result_mutex);
+    pthread_cond_wait(&g_state.result_cond, &g_state.result_mutex);
+    cmd_result = g_state.cmd_result;
+    pthread_mutex_unlock(&g_state.result_mutex);
+    return cmd_result;
+}
 
 int spotifyctl_do_cmd0(char cmd, char **error_msg)
 {
     pthread_mutex_lock(&g_state.notify_mutex);
     g_state.cmd = cmd;
+    g_state.cmd_error_msg = error_msg;
     pthread_cond_signal(&g_state.notify_cond);
     pthread_mutex_unlock(&g_state.notify_mutex);
-    
-    int cmd_result;
-    pthread_mutex_lock(&g_state.result_mutex);
-    pthread_cond_wait(&g_state.result_cond, &g_state.result_mutex);
-    cmd_result = g_state.cmd_result;
-    error_msg = g_state.cmd_error_msg;
-    pthread_mutex_unlock(&g_state.result_mutex);
-    return cmd_result;
+    return wait_for_cmd_result();
+}
+
+int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg)
+{
+    pthread_mutex_lock(&g_state.notify_mutex);
+    g_state.cmd = cmd;
+    g_state.cmd_error_msg = error_msg;
+    g_state.cmd_arg1 = arg1;
+    pthread_cond_signal(&g_state.notify_cond);
+    pthread_mutex_unlock(&g_state.notify_mutex);
+    return wait_for_cmd_result();
 }
 
 //int spotifyctl_do_cmd1(spotifyctl_cmd cmd, void *arg1, char **error_msg);
 //int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
 
+void handle_cmd_player_load()
+{
+    sp_link *link;
+    sp_error err;
+    sp_track *track;
+
+    if (g_state.player_load_track) {
+        g_state.cmd_result = CMD_RESULT_ERROR;
+        *g_state.cmd_error_msg = "Still loading a track";
+        return;
+    }
+
+    link = sp_link_create_from_string(g_state.cmd_arg1);
+    if (!link) {
+        g_state.cmd_result = CMD_RESULT_ERROR;
+        *g_state.cmd_error_msg = "Parsing track failed";
+        return;
+    }
+
+    track = sp_link_as_track(link);
+    if (!track) {
+        sp_link_release(link);
+        g_state.cmd_result = CMD_RESULT_ERROR;
+        *g_state.cmd_error_msg = "Link is not a track";
+        return;
+    }
+    sp_track_add_ref(track);
+    sp_link_release(link);
+
+    if (!sp_track_is_loaded(track)) {
+        g_state.player_load_track = track;
+        g_state.cmd_result = CMD_RESULT_LOADING;
+        return;
+    }
+
+    err = sp_session_player_load(g_state.session, track);
+    if (err != SP_ERROR_OK) {
+        g_state.cmd_result = CMD_RESULT_ERROR;
+        *g_state.cmd_error_msg = sp_error_message(err);
+        return;
+    }
+    
+    sp_track_release(track);
+    g_state.cmd_result = CMD_RESULT_OK;
+}
+
+// record the pid
+void spotifyctl_set_pid(void *erl_pid)
+{
+    g_state.erl_pid = erl_pid;
+}
 
 int spotifyctl_run(void *erl_pid, char *username, char *password)
 {
     sp_error err;
     int next_timeout = 0;
 
-    // record the pid
-    g_state.erl_pid = erl_pid;
+    spotifyctl_set_pid(erl_pid);
     
     // reinit
     if (!g_state.audio_initialized) {
@@ -589,15 +567,23 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
             pthread_mutex_unlock(&g_state.notify_mutex);
 
             g_state.cmd_result = CMD_RESULT_OK;
-            g_state.cmd_error_msg = 0;
+            *g_state.cmd_error_msg = 0;
 
             switch (cmd)
             {
             case CMD_STOP:
                 g_state.running = 0;
                 break;
+            case CMD_PLAYER_LOAD:
+                handle_cmd_player_load();
+                break;
+            case CMD_PLAYER_PLAY:
+                sp_session_player_play(g_state.session, *((int *)g_state.cmd_arg1));
+                g_state.cmd_result = CMD_RESULT_OK;
+                break;
             default:
                 fprintf(stderr, "Unknown client command: %d\n\r", cmd);
+                g_state.cmd_result = CMD_RESULT_ERROR;
                 break;
             }
             pthread_cond_signal(&g_state.result_cond);
