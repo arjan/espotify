@@ -581,6 +581,10 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
                 sp_session_player_play(g_state.session, *((int *)g_state.cmd_arg1));
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
+            case CMD_PLAYER_SEEK:
+                sp_session_player_seek(g_state.session, *((int *)g_state.cmd_arg1));
+                g_state.cmd_result = CMD_RESULT_OK;
+                break;
             default:
                 fprintf(stderr, "Unknown client command: %d\n\r", cmd);
                 g_state.cmd_result = CMD_RESULT_ERROR;
