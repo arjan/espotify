@@ -29,7 +29,6 @@ void esp_debug(void *erl_pid)
 void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
 {
     ErlNifEnv* env = ensure_env();
-    fprintf(stderr, "send to: %p\n", erl_pid);
     if (!enif_send(NULL, 
                    (ErlNifPid *)erl_pid, 
                    env,
@@ -39,7 +38,7 @@ void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term
                        enif_make_atom(env, callback_name),
                        term)
             )) {
-        fprintf(stderr, "error sending.... :-/\n");
+        fprintf(stderr, "error sending feedback, process might be gone\n");
     }
 }
 

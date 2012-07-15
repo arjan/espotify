@@ -11,9 +11,11 @@ all() ->
      test_start_bad_login,
      test_start,
      test_start_again,
+     test_player_no_current_track,
      test_player_load,
      test_player_play,
      test_player_seek,
+     test_player_unload,
      test_stop
     ].
 
@@ -64,11 +66,21 @@ test_start_again(C) ->
     {error, already_started} = espotify_nif:start(self(), Username, Password).
 
 
+test_player_no_current_track(_) ->
+    ok = espotify_nif:set_pid(self()),
+    {error, no_current_track} = espotify_nif:player_play(true),
+    {error, no_current_track} = espotify_nif:player_seek(112),
+    {error, no_current_track} = espotify_nif:player_unload().
+
+
 test_player_load(_) ->
     ok = espotify_nif:set_pid(self()),
-    loading = espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ"),
-    loaded = expect_callback(player_load),
-    ok.
+    case espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
+        loading ->
+            loaded = expect_callback(player_load);
+        ok -> 
+            ok
+    end.
     
 
 %% @doc Some tests really rely on a human actually listening to the sound...
@@ -81,6 +93,7 @@ test_player_play(_) ->
     timer:sleep(2000),
     ok.
 
+
 test_player_seek(_) ->
     ok = espotify_nif:set_pid(self()),
     ok = espotify_nif:player_play(true),
@@ -90,6 +103,13 @@ test_player_seek(_) ->
     timer:sleep(2000),
     ok = espotify_nif:player_play(false),
     ok.
+
+
+test_player_unload(_) ->
+    ok = espotify_nif:set_pid(self()),
+    ok = espotify_nif:player_unload(),
+    {error, no_current_track} = espotify_nif:player_unload().
+
 
 test_stop(_) ->
     ok = espotify_nif:stop(),

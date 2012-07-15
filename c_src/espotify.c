@@ -145,6 +145,9 @@ static ERL_NIF_TERM espotify_player_play(ErlNifEnv* env, int argc, const ERL_NIF
    if (!enif_get_atom(env, argv[0], atom, MAX_ATOM, ERL_NIF_LATIN1))
         return enif_make_badarg(env);
 
+    if (!spotifyctl_has_current_track())
+        return ATOM_ERROR(env, "no_current_track");
+
     int play = strcmp(atom, "true") == 0;
 
     char *error_msg;
@@ -158,8 +161,11 @@ static ERL_NIF_TERM espotify_player_seek(ErlNifEnv* env, int argc, const ERL_NIF
     ASSERT_STARTED(priv);
 
     unsigned int offset;
-   if (!enif_get_uint(env, argv[0], &offset))
+    if (!enif_get_uint(env, argv[0], &offset))
         return enif_make_badarg(env);
+
+    if (!spotifyctl_has_current_track())
+        return ATOM_ERROR(env, "no_current_track");
 
     char *error_msg;
     spotifyctl_do_cmd1(CMD_PLAYER_SEEK, (void *)&offset, &error_msg);
@@ -171,7 +177,12 @@ static ERL_NIF_TERM espotify_player_unload(ErlNifEnv* env, int argc, const ERL_N
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    return enif_make_atom(env, "error");
+    if (!spotifyctl_has_current_track())
+        return ATOM_ERROR(env, "no_current_track");
+
+    char *error_msg;
+    spotifyctl_do_cmd0(CMD_PLAYER_UNLOAD, &error_msg);
+    return enif_make_atom(env, "ok");
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)

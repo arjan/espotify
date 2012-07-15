@@ -349,9 +349,11 @@ static void metadata_updated(sp_session *sess)
 {
     if (g_state.player_load_track && 
         sp_track_is_loaded(g_state.player_load_track)) {
-        //fprintf(stderr, "%s\n", sp_track_name(g_state.player_load_track));
         sp_session_player_load(g_state.session, g_state.player_load_track);
-        sp_track_release(g_state.player_load_track);
+        if (g_state.current_track) {
+            sp_track_release(g_state.current_track);
+        }
+        g_state.current_track = g_state.player_load_track;
         g_state.player_load_track = 0;
         esp_player_load_feedback(g_state.erl_pid);
         return;
@@ -475,8 +477,10 @@ void handle_cmd_player_load()
         *g_state.cmd_error_msg = sp_error_message(err);
         return;
     }
-    
-    sp_track_release(track);
+
+    g_state.player_load_track = NULL;
+    g_state.current_track = track;
+
     g_state.cmd_result = CMD_RESULT_OK;
 }
 
@@ -484,6 +488,11 @@ void handle_cmd_player_load()
 void spotifyctl_set_pid(void *erl_pid)
 {
     g_state.erl_pid = erl_pid;
+}
+
+int spotifyctl_has_current_track()
+{
+    return g_state.current_track != NULL;
 }
 
 int spotifyctl_run(void *erl_pid, char *username, char *password)
@@ -585,6 +594,14 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
                 sp_session_player_seek(g_state.session, *((int *)g_state.cmd_arg1));
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
+            case CMD_PLAYER_UNLOAD:
+                sp_session_player_unload(g_state.session);
+                if (g_state.current_track != NULL) {
+                    sp_track_release(g_state.current_track);
+                    g_state.current_track = 0;
+                }
+                g_state.cmd_result = CMD_RESULT_OK;
+                break;
             default:
                 fprintf(stderr, "Unknown client command: %d\n\r", cmd);
                 g_state.cmd_result = CMD_RESULT_ERROR;
@@ -604,7 +621,7 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
         sp_user_release(g_state.user);
     }
 
-    DBG("Exit main loop");
+    //DBG("Exit main loop");
 
     return 0;
 }

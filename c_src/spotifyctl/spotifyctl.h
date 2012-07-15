@@ -1,6 +1,6 @@
 int spotifyctl_run(void *erl_pid, char *username, char *password);
 void spotifyctl_set_pid(void *erl_pid);
-//int spotifyctl_stop();
+int spotifyctl_has_current_track();
 
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10
