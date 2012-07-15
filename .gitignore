@@ -6,3 +6,4 @@ test/app.config
 test/*.beam
 tmp
 priv/*.so
+doc/
