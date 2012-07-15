@@ -16,19 +16,20 @@ Installation and setup
 
 First of all, you need a Spotify Premium account to use this library.
 
-Download libspotify from
-https://developer.spotify.com/technologies/libspotify/ for your
-platform, and install it (on Linux / Mac, that would be something like
-`make install prefix=/usr/local` (see its README file for more
-info). Make sure the libspotify example programs compile (especially
-the jukebox one to play sound, as espotify uses the same libraries).
+(Download
+libspotify)[https://developer.spotify.com/technologies/libspotify/]
+for your platform, and install it (on Linux / Mac, that would be
+something like `make install prefix=/usr/local`; see libspotify's
+README file for more info). Make sure the libspotify example programs
+compile (especially the jukebox one to play sound, as espotify uses
+the same libraries).
 
-Next, generate a libspotify app key
-(https://developer.spotify.com/technologies/libspotify/keys/) and
+Next, (generate a libspotify app
+key)[https://developer.spotify.com/technologies/libspotify/keys/] and
 download the resulting C-code, placing it in espotify's
 `c_src/spotifyctl/appkey.c` file.
 
-That should be it; from espotify's directory, `rebar compile` should
+That should be it! Now, from espotify's directory, `rebar compile` should
 compile the Erlang NIF library.
 
 
