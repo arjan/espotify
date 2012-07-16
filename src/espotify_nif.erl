@@ -1,7 +1,7 @@
 %% @doc The libspotify Erlang Interface. 
 %%
 %% <h3>Callback messages</h3> Many calls will at some point in time an
-%% asynchronous callback message. For this purpose, the start/3
+%% asynchronous callback message. For this purpose, the start/5
 %% function has a pid() argument, and a set_pid/1 function is provided
 %% to later change the callback pid.
 %%
@@ -14,7 +14,7 @@
 -module(espotify_nif).
 
 -export([
-         start/3,
+         start/5,
          stop/0,
          set_pid/1,
 
@@ -52,8 +52,10 @@ init() ->
 %% libspotify. The pid given will receive callback messages.
 %%
 %% On successful login, a message <pre>{'$spotify_callback', logged_in, {ok, #sp_user{}}} </pre> will be sent back.
--spec start(string(), string(), pid()) -> ok | {error, already_started}.
-start(_, _, _) ->
+-spec start(CallbackPid::pid(),
+            CacheLocation::string(), SettingsLocation::string(),
+            Username::string(), Password::string()) -> ok | {error, already_started}.
+start(_, _, _, _, _) ->
     ?NOT_LOADED.
 
 %% @doc Stop the main loop. No espotify commands can be called after

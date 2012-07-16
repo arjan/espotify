@@ -40,7 +40,7 @@ The library is highly asynchronous by nature. After most commands you
 need to wait for a response from spotify before you can issue the
 next, as you can see in the following example:
 
-    espotify_nif:start(self(), "username", "password"),
+    espotify_nif:start(self(), "/tmp/espotify", "/tmp/espotify", "username", "password"),
     receive
         {'$spotify_callback', logged_in, {ok, _User}} ->
             ok

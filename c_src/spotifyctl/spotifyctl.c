@@ -13,11 +13,11 @@
 
 #include "audio.h"
 #include "spotifyctl.h"
+#include "spotifyctl_util.h"
 #include "../espotify_async.h"
 
 #define USER_AGENT "espotify"
 
-#define MAX_LINK 1024
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 // see appkey.c
@@ -355,7 +355,9 @@ static void metadata_updated(sp_session *sess)
         }
         g_state.current_track = g_state.player_load_track;
         g_state.player_load_track = 0;
-        esp_player_load_feedback(g_state.erl_pid);
+        spotifyctl_track *t = make_track(g_state.session, g_state.current_track);
+        esp_player_load_feedback(g_state.erl_pid, t);
+        release_track(t);
         return;
     }
 }
@@ -391,8 +393,6 @@ static sp_session_callbacks session_callbacks = {
 
 static sp_session_config spconfig = {
 	.api_version = SPOTIFY_API_VERSION,
-	.cache_location = "/tmp/test",
-	.settings_location = "/tmp/test",
 	.application_key = g_appkey,
 	.application_key_size = 0, // Set in main()
 	.user_agent = "spotify-jukebox-example",
@@ -481,6 +481,10 @@ void handle_cmd_player_load()
     g_state.player_load_track = NULL;
     g_state.current_track = track;
 
+    spotifyctl_track *t = make_track(g_state.session, g_state.current_track);
+    esp_player_load_feedback(g_state.erl_pid, t);
+    release_track(t);
+
     g_state.cmd_result = CMD_RESULT_OK;
 }
 
@@ -495,7 +499,11 @@ int spotifyctl_has_current_track()
     return g_state.current_track != NULL;
 }
 
-int spotifyctl_run(void *erl_pid, char *username, char *password)
+int spotifyctl_run(void *erl_pid,
+                   const char *cache_location,
+                   const char *settings_location,
+                   const char *username,
+                   const char *password)
 {
     sp_error err;
     int next_timeout = 0;
@@ -513,6 +521,9 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
         /* Create session */
         spconfig.application_key_size = g_appkey_size;
 
+        spconfig.cache_location = cache_location;
+        spconfig.settings_location = settings_location;
+        
         err = sp_session_create(&spconfig, &g_state.session);
 
         if (SP_ERROR_OK != err) {
@@ -521,6 +532,7 @@ int spotifyctl_run(void *erl_pid, char *username, char *password)
             exit(1);
         }
     }
+
     pthread_mutex_init(&g_state.notify_mutex, NULL);
     pthread_cond_init(&g_state.notify_cond, NULL);
 

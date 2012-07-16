@@ -13,14 +13,16 @@
 
 #define ASSERT_STARTED(priv) if (!priv->session) {return ATOM_ERROR(env, "not_started");}
 
-
-#define USERNAMEMAX 255
+#define MAX_PATH 1024
+#define MAX_USERNAME 255
 #define MAX_LINK 1024
 #define MAX_ATOM 1024
 
 typedef struct  {
-    char username[USERNAMEMAX];
-    char password[USERNAMEMAX];
+    char username[MAX_USERNAME];
+    char password[MAX_USERNAME];
+    char cache_location[MAX_PATH];
+    char settings_location[MAX_PATH];
     ErlNifPid pid; /* the calling process for sending async feedback. */
     ErlNifTid tid;
 } espotify_session;
@@ -35,7 +37,9 @@ ErlNifPid return_pid;
 void *run_main_thread(void *data)
 {
     espotify_session *session = (espotify_session *)data;
-    spotifyctl_run(&session->pid, session->username, session->password);
+    spotifyctl_run(&session->pid,
+                   session->cache_location, session->settings_location,
+                   session->username, session->password);
     return NULL;
 }
 
@@ -54,10 +58,16 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc,
     if (!enif_get_local_pid(env, argv[0], &priv->session->pid))
         return enif_make_badarg(env);
 
-    if (enif_get_string(env, argv[1], priv->session->username, USERNAMEMAX, ERL_NIF_LATIN1) < 1)
+    if (enif_get_string(env, argv[1], priv->session->cache_location, MAX_PATH, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    if (enif_get_string(env, argv[2], priv->session->password, USERNAMEMAX, ERL_NIF_LATIN1) < 1)
+    if (enif_get_string(env, argv[2], priv->session->settings_location, MAX_PATH, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    if (enif_get_string(env, argv[3], priv->session->username, MAX_USERNAME, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    if (enif_get_string(env, argv[4], priv->session->password, MAX_USERNAME, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
     if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, (void *)priv->session, NULL))
@@ -202,7 +212,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"start", 3, espotify_start},
+    {"start", 5, espotify_start},
     {"stop", 0, espotify_stop},
     {"set_pid", 1, espotify_set_pid},
     {"player_load", 1, espotify_player_load},

@@ -45,7 +45,7 @@ expect_callback(Callback) ->
     end.
 
 test_start_bad_login(_C) ->
-    ok = espotify_nif:start(self(), "nonexistinguser", "password"),
+    ok = espotify_nif:start(self(), "tmp", "tmp", "nonexistinguser", "password"),
     {error, _} = expect_callback(logged_in),
     espotify_nif:stop(),
     ok.
@@ -54,7 +54,7 @@ test_start(C) ->
     Username = proplists:get_value(username, C),
     Password = proplists:get_value(password, C),
 
-    ok = espotify_nif:start(self(), Username, Password),
+    ok = espotify_nif:start(self(), "tmp", "tmp", Username, Password),
     {ok, U=#sp_user{canonical_name=Username}} = expect_callback(logged_in),
     ct:print("Login OK as ~s", [U#sp_user.link]),
     ok.
@@ -63,7 +63,7 @@ test_start(C) ->
 test_start_again(C) ->
     Username = proplists:get_value(username, C),
     Password = proplists:get_value(password, C),
-    {error, already_started} = espotify_nif:start(self(), Username, Password).
+    {error, already_started} = espotify_nif:start(self(), "tmp", "tmp", Username, Password).
 
 
 test_player_no_current_track(_) ->
@@ -75,12 +75,16 @@ test_player_no_current_track(_) ->
 
 test_player_load(_) ->
     ok = espotify_nif:set_pid(self()),
-    case espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
-        loading ->
-            loaded = expect_callback(player_load);
-        ok -> 
-            ok
-    end.
+    CurrentTrack = case espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
+                       loading ->
+                           {ok, T} = expect_callback(player_load),
+                           T;
+                       {ok, T} -> 
+                           T
+                   end,
+    ct:print("Current track: ~s (~s)", [CurrentTrack#sp_track.link, CurrentTrack#sp_track.track_name]),
+    ok.
+
     
 
 %% @doc Some tests really rely on a human actually listening to the sound...
