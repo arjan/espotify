@@ -35,11 +35,11 @@
      link :: string(),
      %% artists :: [#sp_artist{}],
      %% album :: #sp_album{},
-     track_name :: string()
-     %% duration :: non_neg_integer(),
-     %% popularity :: non_neg_integer(),
-     %% disc :: non_neg_integer(),
-     %% index :: non_neg_integer()
+     track_name :: string(),
+     duration :: non_neg_integer(),
+     popularity :: non_neg_integer(),
+     disc :: non_neg_integer(),
+     index :: non_neg_integer()
    }).
 
 -record(

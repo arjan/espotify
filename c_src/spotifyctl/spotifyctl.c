@@ -14,7 +14,7 @@
 #include "audio.h"
 #include "spotifyctl.h"
 #include "spotifyctl_util.h"
-#include "../espotify_async.h"
+#include "../espotify_callbacks.h"
 
 #define USER_AGENT "espotify"
 
@@ -329,11 +329,9 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
  */
 static void end_of_track(sp_session *sess)
 {
-    pthread_mutex_lock(&g_state.notify_mutex);
-    g_state.playback_done = 1;
-    g_state.notify_events = 1;
-    pthread_cond_signal(&g_state.notify_cond);
-    pthread_mutex_unlock(&g_state.notify_mutex);
+    sp_track_release(g_state.current_track);
+    g_state.current_track = NULL;
+    esp_atom_feedback((void *)g_state.erl_pid, "player_play", "end_of_track");
 }
 
 
@@ -497,6 +495,11 @@ void spotifyctl_set_pid(void *erl_pid)
 int spotifyctl_has_current_track()
 {
     return g_state.current_track != NULL;
+}
+
+spotifyctl_track *spotifyctl_current_track()
+{
+    return make_track(g_state.session, g_state.current_track);
 }
 
 int spotifyctl_run(void *erl_pid,

@@ -15,6 +15,7 @@ all() ->
      test_player_load,
      test_player_play,
      test_player_seek,
+     test_player_end_of_track,
      test_player_unload,
      test_stop
     ].
@@ -45,7 +46,7 @@ expect_callback(Callback) ->
     end.
 
 test_start_bad_login(_C) ->
-    ok = espotify_nif:start(self(), "tmp", "tmp", "nonexistinguser", "password"),
+    ok = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", "nonexistinguser", "password"),
     {error, _} = expect_callback(logged_in),
     espotify_nif:stop(),
     ok.
@@ -54,7 +55,7 @@ test_start(C) ->
     Username = proplists:get_value(username, C),
     Password = proplists:get_value(password, C),
 
-    ok = espotify_nif:start(self(), "tmp", "tmp", Username, Password),
+    ok = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", Username, Password),
     {ok, U=#sp_user{canonical_name=Username}} = expect_callback(logged_in),
     ct:print("Login OK as ~s", [U#sp_user.link]),
     ok.
@@ -63,7 +64,7 @@ test_start(C) ->
 test_start_again(C) ->
     Username = proplists:get_value(username, C),
     Password = proplists:get_value(password, C),
-    {error, already_started} = espotify_nif:start(self(), "tmp", "tmp", Username, Password).
+    {error, already_started} = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", Username, Password).
 
 
 test_player_no_current_track(_) ->
@@ -75,24 +76,28 @@ test_player_no_current_track(_) ->
 
 test_player_load(_) ->
     ok = espotify_nif:set_pid(self()),
-    CurrentTrack = case espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
+    Link = "spotify:track:6JEK0CvvjDjjMUBFoXShNZ",
+    CurrentTrack = case espotify_nif:player_load(Link) of
                        loading ->
                            {ok, T} = expect_callback(player_load),
                            T;
                        {ok, T} -> 
                            T
                    end,
-    ct:print("Current track: ~s (~s)", [CurrentTrack#sp_track.link, CurrentTrack#sp_track.track_name]),
+    Link = CurrentTrack#sp_track.link,
+    ct:print("Current track: ~s (~s), ~p ms", [CurrentTrack#sp_track.link,
+                                               CurrentTrack#sp_track.track_name,
+                                               CurrentTrack#sp_track.duration]),
     ok.
 
-    
+
 
 %% @doc Some tests really rely on a human actually listening to the sound...
 test_player_play(_) ->
     ok = espotify_nif:set_pid(self()),
     ok = espotify_nif:player_play(true),
     ct:print("Now playing!"),
-    timer:sleep(5000),
+    timer:sleep(3000),
     ok = espotify_nif:player_play(false),
     timer:sleep(2000),
     ok.
@@ -102,15 +107,27 @@ test_player_seek(_) ->
     ok = espotify_nif:set_pid(self()),
     ok = espotify_nif:player_play(true),
     ok = espotify_nif:player_seek(5000),
-    timer:sleep(2000),
+    timer:sleep(1000),
     ok = espotify_nif:player_seek(5000),
-    timer:sleep(2000),
+    timer:sleep(1000),
     ok = espotify_nif:player_play(false),
     ok.
 
+%% @doc Seek to 500ms before end of track, wait for the EOT callback.
+test_player_end_of_track(_) ->
+    ok = espotify_nif:set_pid(self()),
+    {ok, T} = espotify_nif:player_current_track(),
+    Duration = T#sp_track.duration,
+    ok = espotify_nif:player_seek(Duration-500),
+    ok = espotify_nif:player_play(true),
+    end_of_track = expect_callback(player_play),
+    undefined = espotify_nif:player_current_track(),
+    ok.
 
 test_player_unload(_) ->
     ok = espotify_nif:set_pid(self()),
+    Link = "spotify:track:6JEK0CvvjDjjMUBFoXShNZ",
+    ok = espotify_nif:player_load(Link), %% second load should be instantaneous; cached in libspotify.
     ok = espotify_nif:player_unload(),
     {error, no_current_track} = espotify_nif:player_unload().
 

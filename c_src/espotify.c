@@ -4,6 +4,8 @@
 #include <string.h> /* strcmp */
 
 #include "spotifyctl/spotifyctl.h"
+#include "espotify_util.h"
+
 #include "erl_nif.h"
 
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
@@ -195,6 +197,20 @@ static ERL_NIF_TERM espotify_player_unload(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_atom(env, "ok");
 }
 
+static ERL_NIF_TERM espotify_player_current_track(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    if (!spotifyctl_has_current_track())
+        return enif_make_atom(env, "undefined");
+
+    spotifyctl_track *track = spotifyctl_current_track();
+    ERL_NIF_TERM t = OK_TERM(env, track_tuple(env, track));
+    release_track(track);
+    return t;
+}
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
@@ -219,7 +235,8 @@ static ErlNifFunc nif_funcs[] =
     {"player_prefetch", 1, espotify_player_prefetch},
     {"player_play", 1, espotify_player_play},
     {"player_seek", 1, espotify_player_seek},
-    {"player_unload", 0, espotify_player_unload}
+    {"player_unload", 0, espotify_player_unload},
+    {"player_current_track", 0, espotify_player_current_track}
 };
 
 ERL_NIF_INIT(espotify_nif,nif_funcs,load,NULL,NULL,unload)

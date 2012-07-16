@@ -13,6 +13,8 @@
 %% @author Arjan Scherpenisse
 -module(espotify_nif).
 
+-include_lib("espotify.hrl").
+
 -export([
          start/5,
          stop/0,
@@ -22,7 +24,8 @@
          player_prefetch/1,
          player_play/1,
          player_seek/1,
-         player_unload/0
+         player_unload/0,
+         player_current_track/0
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -94,4 +97,9 @@ player_seek(_Offset) ->
 %% @doc Stops the currently playing track.
 -spec player_unload() -> ok | {error, term()}.
 player_unload() ->
+    ?NOT_LOADED.
+
+%% @doc Returns the currently playing track.
+-spec player_current_track() -> #sp_track{} | undefined.
+player_current_track() ->
     ?NOT_LOADED.

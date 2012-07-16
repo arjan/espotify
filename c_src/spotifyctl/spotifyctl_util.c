@@ -19,8 +19,14 @@ spotifyctl_track *make_track(sp_session *session, sp_track *track)
     {
         out->is_starred = sp_track_is_starred(session, track);
         out->is_local = sp_track_is_local(session, track);
+
         out->track_name = malloc(strlen(sp_track_name(track))*sizeof(char));
         strcpy(out->track_name, sp_track_name(track));
+
+        out->duration = sp_track_duration(track);
+        out->popularity = sp_track_popularity(track);
+        out->disc = sp_track_disc(track);
+        out->index = sp_track_index(track);
     }
     return out;
 }
