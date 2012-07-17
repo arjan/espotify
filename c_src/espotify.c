@@ -205,10 +205,7 @@ static ERL_NIF_TERM espotify_player_current_track(ErlNifEnv* env, int argc, cons
     if (!spotifyctl_has_current_track())
         return enif_make_atom(env, "undefined");
 
-    spotifyctl_track *track = spotifyctl_current_track();
-    ERL_NIF_TERM t = OK_TERM(env, track_tuple(env, track));
-    release_track(track);
-    return t;
+    return OK_TERM(env, track_tuple(env, spotifyctl_get_session(), spotifyctl_current_track()));
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)

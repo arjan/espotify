@@ -1,26 +1,18 @@
 #ifndef spotifyctl_h
 #define spotifyctl_h
 
-#define MAX_LINK 1024
+#include <libspotify/api.h>
 
-typedef struct {
-    int is_loaded;
-    int is_local;
-    int is_starred;
-    char link[MAX_LINK];
-    char *track_name;
-    unsigned int duration;
-    unsigned int popularity;
-    unsigned int disc;
-    unsigned int index;
-} spotifyctl_track;
+#define MAX_LINK 1024
 
 
 int spotifyctl_run(void *erl_pid, const char *cache_location, const char *settings_location,
                    const char *username, const char *password);
 void spotifyctl_set_pid(void *erl_pid);
 int spotifyctl_has_current_track();
-spotifyctl_track *spotifyctl_current_track();
+
+sp_track *spotifyctl_current_track();
+sp_session *spotifyctl_get_session();
 
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10

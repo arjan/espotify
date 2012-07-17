@@ -13,7 +13,6 @@
 
 #include "audio.h"
 #include "spotifyctl.h"
-#include "spotifyctl_util.h"
 #include "../espotify_callbacks.h"
 
 #define USER_AGENT "espotify"
@@ -246,20 +245,7 @@ static void logged_in(sp_session *sess, sp_error error)
         sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
     }
 
-    g_state.user = sp_session_user(g_state.session);
-    sp_user_add_ref(g_state.user);
-    
-    // Make login feedback
-    sp_link *link = sp_link_create_from_user(g_state.user);
-    char link_str[MAX_LINK];
-    sp_link_as_string(link, link_str, MAX_LINK);
-    
-    esp_logged_in_feedback(g_state.erl_pid,
-                           link_str,
-                           sp_user_canonical_name(g_state.user),
-                           sp_user_display_name(g_state.user));
-
-    sp_link_release(link);
+    esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
 }
 
 /**
@@ -353,9 +339,7 @@ static void metadata_updated(sp_session *sess)
         }
         g_state.current_track = g_state.player_load_track;
         g_state.player_load_track = 0;
-        spotifyctl_track *t = make_track(g_state.session, g_state.current_track);
-        esp_player_load_feedback(g_state.erl_pid, t);
-        release_track(t);
+        esp_player_load_feedback(g_state.erl_pid, g_state.session, g_state.current_track);
         return;
     }
 }
@@ -479,10 +463,6 @@ void handle_cmd_player_load()
     g_state.player_load_track = NULL;
     g_state.current_track = track;
 
-    spotifyctl_track *t = make_track(g_state.session, g_state.current_track);
-    esp_player_load_feedback(g_state.erl_pid, t);
-    release_track(t);
-
     g_state.cmd_result = CMD_RESULT_OK;
 }
 
@@ -497,9 +477,14 @@ int spotifyctl_has_current_track()
     return g_state.current_track != NULL;
 }
 
-spotifyctl_track *spotifyctl_current_track()
+sp_track *spotifyctl_current_track()
 {
-    return make_track(g_state.session, g_state.current_track);
+    return g_state.current_track;
+}
+
+sp_session *spotifyctl_get_session()
+{
+    return g_state.session;
 }
 
 int spotifyctl_run(void *erl_pid,

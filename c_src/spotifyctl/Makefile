@@ -15,7 +15,7 @@ endif
 
 TARGET = spotifyctl
 ## TARGET = playtrack
-OBJS = $(TARGET).o spotifyctl_util.o appkey.o $(AUDIO_DRIVER)-audio.o audio.o
+OBJS = $(TARGET).o appkey.o $(AUDIO_DRIVER)-audio.o audio.o
 
 $(TARGET): $(OBJS)
 #	$(CC) $(CFLAGS) $(LDFLAGS) $^ -shared -Wl,-soname,libspotifyctl.so.1 -o lib$@.so $(LDLIBS)
@@ -86,4 +86,3 @@ osx-audio.o: osx-audio.c audio.h
 openal-audio.o: openal-audio.c audio.h
 spotify.o: spotify.c audio.h
 playtrack.o: playtrack.c audio.h
-spotifyctl_util.o: spotifyctl_util.c spotifyctl.h

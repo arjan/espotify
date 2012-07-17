@@ -7,6 +7,8 @@
 #include "spotifyctl/spotifyctl.h"
 #include "espotify_util.h"
 
+#define MAX_LINK 1024
+
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 
@@ -69,10 +71,16 @@ void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
     enif_clear_env(env);
 }
 
-void esp_logged_in_feedback(void *erl_pid, const char *link, const char *canonical_name, const char *display_name)
+void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
 {
     ErlNifEnv* env = ensure_env();
 
+    // Make login feedback
+    char link_str[MAX_LINK];
+    sp_link *link = sp_link_create_from_user(user);
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
+    
     callback_result(erl_pid,
                     "logged_in",
                     enif_make_tuple2(
@@ -81,9 +89,9 @@ void esp_logged_in_feedback(void *erl_pid, const char *link, const char *canonic
                         enif_make_tuple4(
                             env,
                             enif_make_atom(env, "sp_user"),
-                            enif_make_string(env, link, ERL_NIF_LATIN1),
-                            enif_make_string(env, canonical_name, ERL_NIF_LATIN1),
-                            enif_make_string(env, display_name, ERL_NIF_LATIN1)
+                            enif_make_string(env, link_str, ERL_NIF_LATIN1),
+                            enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
+                            enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
                             )
                         )
         );
@@ -91,31 +99,41 @@ void esp_logged_in_feedback(void *erl_pid, const char *link, const char *canonic
 }
 
 
-ERL_NIF_TERM track_tuple(ErlNifEnv* env, spotifyctl_track *track)
+ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track)
 {
+    char link_str[MAX_LINK];
+
+    sp_link *link = sp_link_create_from_track(track, 0);
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
+
+    int loaded = sp_track_is_loaded(track);
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+
     return enif_make_tuple(
         env,
         10,
         enif_make_atom(env, "sp_track"),
-        enif_make_atom(env, track->is_loaded ? "true" : "false"),
-        enif_make_atom(env, track->is_starred ? "true" : "false"),
-        enif_make_atom(env, track->is_local ? "true" : "false"),
-        enif_make_string(env, track->link, ERL_NIF_LATIN1),
-        enif_make_string(env, track->track_name, ERL_NIF_LATIN1),
-        enif_make_uint(env, track->duration),
-        enif_make_uint(env, track->popularity),
-        enif_make_uint(env, track->disc),
-        enif_make_uint(env, track->index)
+        enif_make_atom(env, loaded ? "true" : "false"),
+        loaded ? BOOL_TERM(env, sp_track_is_starred(sess, track)) : undefined,
+        loaded ? BOOL_TERM(env, sp_track_is_local(sess, track)) : undefined,
+        enif_make_string(env, link_str, ERL_NIF_LATIN1),
+        loaded ? enif_make_string(env, sp_track_name(track), ERL_NIF_LATIN1) : undefined,
+        loaded ? enif_make_uint(env, sp_track_duration(track)) : undefined,
+        loaded ? enif_make_uint(env, sp_track_popularity(track)) : undefined,
+        loaded ? enif_make_uint(env, sp_track_disc(track)) : undefined,
+        loaded ? enif_make_uint(env, sp_track_index(track)) : undefined
         );
 }
 
 
-void esp_player_load_feedback(void *erl_pid, spotifyctl_track *track) 
+void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
 {
     ErlNifEnv* env = ensure_env();
     callback_result(erl_pid,
                     "player_load",
-                    OK_TERM(env, track_tuple(env, track))
+                    OK_TERM(env, track_tuple(env, sess, track))
+
         );
     enif_clear_env(env);
 }
