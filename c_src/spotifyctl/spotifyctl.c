@@ -24,6 +24,13 @@ extern const char g_appkey[];
 extern const size_t g_appkey_size;
 
 
+typedef struct load_queue {
+    sp_track *track;
+    void *reference;
+    struct load_queue *next;
+};
+typedef struct load_queue spotifyctl_load_queue;
+
 typedef struct {
     
     /* The output queue for audo data */
@@ -74,6 +81,8 @@ typedef struct {
     // Synchronization condition variable for the result thread
     pthread_cond_t result_cond;
 
+    spotifyctl_load_queue *load_queue_head;
+    spotifyctl_load_queue *load_queue_tail;
     
 } spotifyctl_state;
 
@@ -192,7 +201,6 @@ static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
  */
 static void container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
-    DBG("container loaded");
     fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
             sp_playlistcontainer_num_playlists(pc));
 
@@ -342,6 +350,7 @@ static void metadata_updated(sp_session *sess)
         esp_player_load_feedback(g_state.erl_pid, g_state.session, g_state.current_track);
         return;
     }
+    load_queue_check();
 }
 
 /**
@@ -486,6 +495,82 @@ sp_session *spotifyctl_get_session()
 {
     return g_state.session;
 }
+
+int spotifyctl_track_info(const char *link_str, void *reference, char **error_msg)
+{
+    sp_link *link;
+    
+    link = sp_link_create_from_string(link_str);
+    if (!link) {
+        *error_msg = "Parsing track failed";
+        return CMD_RESULT_ERROR;
+    }
+
+    sp_track *track;
+    track = sp_link_as_track(link);
+    if (!track) {
+        sp_link_release(link);
+        *error_msg = "Link is not a track";
+        return CMD_RESULT_ERROR;
+    }
+    sp_track_add_ref(track);
+    sp_link_release(link);
+
+    if (!sp_track_is_loaded(track)) {
+        load_queue_add(reference, track);
+        return CMD_RESULT_OK;
+    }
+
+    esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
+    sp_track_release(track);
+    
+    return CMD_RESULT_OK;
+}
+
+
+void load_queue_add(void *reference, sp_track *track)
+{
+
+    spotifyctl_load_queue *item = (spotifyctl_load_queue *)malloc(sizeof(spotifyctl_load_queue));
+    item->track = track;
+    item->reference = reference;
+    item->next = NULL;
+    
+    if (!g_state.load_queue_head) {
+        g_state.load_queue_head = item;
+        g_state.load_queue_tail = item;
+    } else {
+        g_state.load_queue_tail->next = item;
+        g_state.load_queue_tail = item;
+    }
+}
+
+void load_queue_check()
+{
+    spotifyctl_load_queue *q = g_state.load_queue_head;
+    spotifyctl_load_queue *prevq = 0;
+
+    while (q) {
+        if (sp_track_is_loaded(q->track)) {
+            // unlink from list
+            if (prevq) {
+                prevq->next = q->next;
+            } else {
+                g_state.load_queue_head = q->next;
+            }
+
+            // do callback
+            esp_player_track_info_feedback(g_state.erl_pid, g_state.session, q->reference, q->track);
+
+            // clean up
+            sp_track_release(q->track);
+            free(q);
+        }
+        prevq = q;
+        q = q->next;
+    }
+}
+
 
 int spotifyctl_run(void *erl_pid,
                    const char *cache_location,

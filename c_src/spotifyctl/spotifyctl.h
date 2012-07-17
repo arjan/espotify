@@ -14,6 +14,8 @@ int spotifyctl_has_current_track();
 sp_track *spotifyctl_current_track();
 sp_session *spotifyctl_get_session();
 
+int spotifyctl_track_info(const char *link, void *reference, char **error_msg);
+
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10
 #define CMD_PLAYER_PLAY     11
@@ -28,6 +30,13 @@ sp_session *spotifyctl_get_session();
 int spotifyctl_do_cmd0(char cmd, char **error_msg);
 int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg);
 //int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
+
+
+
+// internal
+
+void load_queue_add(void *reference, sp_track *track);
+void load_queue_check();
 
 
 #endif

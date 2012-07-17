@@ -12,7 +12,7 @@
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 
-ErlNifEnv *ensure_env()
+ErlNifEnv *temp_env()
 {
     static ErlNifEnv *env = 0;
     if (!env)
@@ -20,9 +20,10 @@ ErlNifEnv *ensure_env()
     return env;
 }
 
+
 void esp_debug(void *erl_pid)
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
     fprintf(stderr, "debug send to: %p\n", erl_pid);
     if (!enif_send(NULL, 
                    (ErlNifPid *)erl_pid, 
@@ -35,7 +36,7 @@ void esp_debug(void *erl_pid)
 
 void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
     if (!enif_send(NULL, 
                    (ErlNifPid *)erl_pid, 
                    env,
@@ -51,7 +52,7 @@ void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term
 
 void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
 
     callback_result(erl_pid,
                     callback_name,
@@ -62,7 +63,7 @@ void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
 
 void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
 
     callback_result(erl_pid,
                     callback_name,
@@ -73,7 +74,7 @@ void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
 
 void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
 
     // Make login feedback
     char link_str[MAX_LINK];
@@ -129,7 +130,7 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track)
 
 void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
 {
-    ErlNifEnv* env = ensure_env();
+    ErlNifEnv* env = temp_env();
     callback_result(erl_pid,
                     "player_load",
                     OK_TERM(env, track_tuple(env, sess, track))
@@ -138,3 +139,24 @@ void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track)
     enif_clear_env(env);
 }
 
+
+void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refptr, sp_track *track)
+{
+    ErlNifEnv* env = temp_env();
+
+    // Copy the reference to the enif_send temp environment
+    ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
+    ERL_NIF_TERM ref_term = enif_make_copy(env, *ref);
+    enif_free(refptr);
+        
+    callback_result(erl_pid,
+                    "track_info",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                ref_term,
+                                track_tuple(env, sess, track))
+                        )
+        );
+    enif_clear_env(env);
+}

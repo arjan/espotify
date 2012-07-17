@@ -32,6 +32,7 @@ typedef struct  {
 typedef struct
 {
     espotify_session *session;
+    ErlNifEnv *callback_env;
 } espotify_private;
 
 ErlNifPid return_pid;
@@ -208,18 +209,49 @@ static ERL_NIF_TERM espotify_player_current_track(ErlNifEnv* env, int argc, cons
     return OK_TERM(env, track_tuple(env, spotifyctl_get_session(), spotifyctl_current_track()));
 }
 
+static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (!priv->session) {
+        // No session started
+        return ATOM_ERROR(env, "not_started");
+    }
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(priv->callback_env);
+    
+    switch (spotifyctl_track_info(link, (void *)reference, &error_msg))
+    {
+    case CMD_RESULT_ERROR:
+        return STR_ERROR(env, error_msg);
+    case CMD_RESULT_OK:
+        return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+    }
+}
+
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
 
     data->session = 0;
-    
+    data->callback_env = enif_alloc_env();
     *priv_data = data;
     return 0;
 }
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
+    espotify_private *data = (espotify_private *)priv_data;
+    enif_free_env(data->callback_env);
     enif_free(priv_data);
 }
 
@@ -233,7 +265,10 @@ static ErlNifFunc nif_funcs[] =
     {"player_play", 1, espotify_player_play},
     {"player_seek", 1, espotify_player_seek},
     {"player_unload", 0, espotify_player_unload},
-    {"player_current_track", 0, espotify_player_current_track}
+    {"player_current_track", 0, espotify_player_current_track},
+
+    {"track_info", 1, espotify_track_info}
+    
 };
 
 ERL_NIF_INIT(espotify_nif,nif_funcs,load,NULL,NULL,unload)

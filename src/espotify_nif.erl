@@ -25,7 +25,9 @@
          player_play/1,
          player_seek/1,
          player_unload/0,
-         player_current_track/0
+         player_current_track/0,
+
+         track_info/1
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -102,4 +104,9 @@ player_unload() ->
 %% @doc Returns the currently playing track.
 -spec player_current_track() -> #sp_track{} | undefined.
 player_current_track() ->
+    ?NOT_LOADED.
+
+%% @doc Get information about a single track.
+-spec track_info(string()) -> {loading, reference()} | {ok, #sp_track{}}.
+track_info(_) ->
     ?NOT_LOADED.
