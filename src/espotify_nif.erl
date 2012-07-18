@@ -106,8 +106,11 @@ player_unload() ->
 player_current_track() ->
     ?NOT_LOADED.
 
-%% @doc Get information about a single track.
+%% @doc Get information about a single track. This call is
+%% asynchronous and returns a reference object. The async callback
+%% will include the same reference value so it can be mapped back.
 %% 
+%% Format of the callback structure:
 %% <pre>{'$spotify_callback', track_info, {ok, {reference(), #sp_track{}}}} </pre>
 -spec track_info(string()) -> {ok, reference()}.
 track_info(_) ->
