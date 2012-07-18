@@ -17,12 +17,13 @@
 
 #define USER_AGENT "espotify"
 
-#define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
+#define CHECK_VALID_LINK(link) if (!link) { *error_msg = "Parsing link failed"; return CMD_RESULT_ERROR;}
+
+#define DBG(d) (fprintf(stderr, "DEBUG [%p]: " d "\n", pthread_self()))
 
 // see appkey.c
 extern const char g_appkey[];
 extern const size_t g_appkey_size;
-
 
 typedef struct load_queue {
     sp_track *track;
@@ -30,6 +31,7 @@ typedef struct load_queue {
     struct load_queue *next;
 };
 typedef struct load_queue spotifyctl_load_queue;
+
 
 typedef struct {
     
@@ -501,10 +503,7 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
     sp_link *link;
     
     link = sp_link_create_from_string(link_str);
-    if (!link) {
-        *error_msg = "Parsing track failed";
-        return CMD_RESULT_ERROR;
-    }
+    CHECK_VALID_LINK(link);
 
     sp_track *track;
     track = sp_link_as_track(link);
@@ -523,6 +522,33 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
 
     esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
     sp_track_release(track);
+    
+    return CMD_RESULT_OK;
+}
+
+void spotifyctl_albumbrowse_complete(sp_albumbrowse *result, void *reference)
+{
+    esp_player_browse_album_feedback(g_state.erl_pid, g_state.session, reference, result);
+    sp_albumbrowse_release(result);
+}
+
+int spotifyctl_browse_album(const char *link_str, void *reference, char **error_msg)
+{
+    sp_link *link;
+    
+    link = sp_link_create_from_string(link_str);
+    CHECK_VALID_LINK(link);
+
+    sp_album *album;
+    album = sp_link_as_album(link);
+    if (!album) {
+        sp_link_release(link);
+        *error_msg = "Link is not an album";
+        return CMD_RESULT_ERROR;
+    }
+    sp_albumbrowse *browse = sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
+    sp_link_release(link);
+    sp_album_release(album);
     
     return CMD_RESULT_OK;
 }

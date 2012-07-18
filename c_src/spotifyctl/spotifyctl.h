@@ -15,6 +15,7 @@ sp_track *spotifyctl_current_track();
 sp_session *spotifyctl_get_session();
 
 int spotifyctl_track_info(const char *link, void *reference, char **error_msg);
+int spotifyctl_browse_album(const char *link, void *reference, char **error_msg);
 
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10

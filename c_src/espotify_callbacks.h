@@ -8,5 +8,6 @@ void esp_atom_feedback(void *erl_pid, const char *callback_name, const char *ato
 void esp_logged_in_feedback(void *erl_pid, sp_session *session, sp_user *user);
 void esp_player_load_feedback(void *erl_pid, sp_session *session, sp_track *track);
 void esp_player_track_info_feedback(void *erl_pid, sp_session *session, void *reference, sp_track *track);
+void esp_player_browse_album_feedback(void *erl_pid, sp_session *session, void *reference, sp_albumbrowse *albumbrowse);
 
 #endif

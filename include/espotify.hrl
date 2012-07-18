@@ -10,6 +10,7 @@
    sp_artist,
    {
      is_loaded :: boolean(),
+     link :: string(),
      name :: string(),
      portrait :: string()
    }).
@@ -18,6 +19,7 @@
    sp_album,
    {
      is_loaded :: boolean(),
+     link :: string(),
      is_available = false :: boolean(),
      artist :: #sp_artist{},
      cover :: string(),
@@ -30,10 +32,10 @@
    sp_track,
    {
      is_loaded :: boolean(),
+     link :: string(),
      is_local :: boolean(),
      is_starred :: boolean(),
-     link :: string(),
-     %% artists :: [#sp_artist{}],
+     artists :: [#sp_artist{}],
      album :: #sp_album{},
      track_name :: string(),
      duration :: non_neg_integer(),

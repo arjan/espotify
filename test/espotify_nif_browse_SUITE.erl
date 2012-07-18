@@ -8,7 +8,8 @@
 
 all() ->
     [
-     test_track_info
+     test_track_info,
+     test_browse_album
     ].
 
 init_per_suite(Config) ->
@@ -42,7 +43,7 @@ expect_callback(Callback) ->
 test_track_info(_) ->
     ok = espotify_nif:set_pid(self()),
 
-    {error, "Parsing track failed"} = espotify_nif:track_info("fdsalfjdsaflldsafads"),
+    {error, "Parsing link failed"} = espotify_nif:track_info("fdsalfjdsaflldsafads"),
 
     %% Get info for a track
     {ok, Ref1} = espotify_nif:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
@@ -57,10 +58,25 @@ test_track_info(_) ->
     "Next To Me" = Album#sp_album.name,
     2010 = Album#sp_album.year,
 
+    [Artist] = T#sp_track.artists,
+    "Ilse DeLange" = Artist#sp_artist.name,
+    "spotify:artist:3FTKP1k9VbOng3m1rgnsqx" = Artist#sp_artist.link,
+
     %% load some more
     {ok, _} = espotify_nif:track_info("spotify:track:2feyopBofIiN35tyhGtlZD"),
     {ok, _} = espotify_nif:track_info("spotify:track:4vrcVOWlA2B1pMAMmohaeL"),
     {ok, _} = expect_callback(track_info),
     {ok, _} = expect_callback(track_info),
 
+    ok.
+
+
+test_browse_album(_) ->
+    ok = espotify_nif:set_pid(self()),
+
+    %%{error, "Parsing link failed"} = espotify_nif:browse_album("fdsalfjdsaflldsafads"),
+    %% Get info for a track
+    {ok, _Ref1} = espotify_nif:browse_album("spotify:album:6WgGWYw6XXQyLTsWt7tXky"),
+    {ok, AB} = expect_callback(browse_album),
+    ct:print("~p", [AB]),
     ok.

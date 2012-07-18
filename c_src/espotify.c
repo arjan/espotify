@@ -206,7 +206,7 @@ static ERL_NIF_TERM espotify_player_current_track(ErlNifEnv* env, int argc, cons
     if (!spotifyctl_has_current_track())
         return enif_make_atom(env, "undefined");
 
-    return OK_TERM(env, track_tuple(env, spotifyctl_get_session(), spotifyctl_current_track()));
+    return OK_TERM(env, track_tuple(env, spotifyctl_get_session(), spotifyctl_current_track(), 1));
 }
 
 static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -217,11 +217,6 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
     char link[MAX_LINK];
     char *error_msg;
 
-    if (!priv->session) {
-        // No session started
-        return ATOM_ERROR(env, "not_started");
-    }
-
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
@@ -229,6 +224,31 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
     *reference = enif_make_ref(priv->callback_env);
     
     switch (spotifyctl_track_info(link, (void *)reference, &error_msg))
+    {
+    case CMD_RESULT_ERROR:
+        return STR_ERROR(env, error_msg);
+    case CMD_RESULT_OK:
+        return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+    }
+}
+
+
+static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+    DBG("AAA");
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(priv->callback_env);
+    DBG("BBB");
+    
+    switch (spotifyctl_browse_album(link, (void *)reference, &error_msg))
     {
     case CMD_RESULT_ERROR:
         return STR_ERROR(env, error_msg);
@@ -267,7 +287,8 @@ static ErlNifFunc nif_funcs[] =
     {"player_unload", 0, espotify_player_unload},
     {"player_current_track", 0, espotify_player_current_track},
 
-    {"track_info", 1, espotify_track_info}
+    {"track_info", 1, espotify_track_info},
+    {"browse_album", 1, espotify_browse_album}
     
 };
 
