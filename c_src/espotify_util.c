@@ -100,6 +100,44 @@ void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
 }
 
 
+ERL_NIF_TERM album_tuple(ErlNifEnv* env, sp_session *sess, sp_album *album)
+{
+    char link_str[MAX_LINK];
+
+    sp_link *link = sp_link_create_from_album(album);
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
+
+    int loaded = sp_album_is_loaded(album);
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+
+    char *type_str = "undefined";
+    switch (sp_album_type(album))
+    {
+    case SP_ALBUMTYPE_ALBUM:
+        type_str = "album"; break;
+    case SP_ALBUMTYPE_SINGLE:
+        type_str = "single"; break;
+    case SP_ALBUMTYPE_COMPILATION:
+        type_str = "compilation"; break;
+    case SP_ALBUMTYPE_UNKNOWN:
+        type_str = "unknown"; break;
+    }
+
+    return enif_make_tuple(
+        env,
+        8,
+        enif_make_atom(env, "sp_album"),
+        BOOL_TERM(env, loaded),
+        loaded ? BOOL_TERM(env, sp_album_is_available(album)) : undefined,
+        undefined, // FIXME artist
+        undefined, // FIXME cover loaded ? enif_make_string(env, sp_album_cover(album), ERL_NIF_LATIN1) : undefined,
+        loaded ? enif_make_string(env, sp_album_name(album), ERL_NIF_LATIN1) : undefined,
+        loaded ? enif_make_uint(env, sp_album_year(album)) : undefined,
+        enif_make_atom(env, type_str)
+        );
+}
+
 ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track)
 {
     char link_str[MAX_LINK];
@@ -113,12 +151,13 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track)
 
     return enif_make_tuple(
         env,
-        10,
+        11,
         enif_make_atom(env, "sp_track"),
         enif_make_atom(env, loaded ? "true" : "false"),
         loaded ? BOOL_TERM(env, sp_track_is_starred(sess, track)) : undefined,
         loaded ? BOOL_TERM(env, sp_track_is_local(sess, track)) : undefined,
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
+        loaded ? album_tuple(env, sess, sp_track_album(track)) : undefined,
         loaded ? enif_make_string(env, sp_track_name(track), ERL_NIF_LATIN1) : undefined,
         loaded ? enif_make_uint(env, sp_track_duration(track)) : undefined,
         loaded ? enif_make_uint(env, sp_track_popularity(track)) : undefined,

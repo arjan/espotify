@@ -107,6 +107,8 @@ player_current_track() ->
     ?NOT_LOADED.
 
 %% @doc Get information about a single track.
--spec track_info(string()) -> {loading, reference()} | {ok, #sp_track{}}.
+%% 
+%% <pre>{'$spotify_callback', track_info, {ok, {reference(), #sp_track{}}}} </pre>
+-spec track_info(string()) -> {ok, reference()}.
 track_info(_) ->
     ?NOT_LOADED.

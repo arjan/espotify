@@ -47,9 +47,17 @@ test_track_info(_) ->
     %% Get info for a track
     {ok, Ref1} = espotify_nif:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
     %% Wait for the callback with the track info
-    {ok, {Ref1, #sp_track{}}} = expect_callback(track_info),
+    {ok, {Ref1, T=#sp_track{}}} = expect_callback(track_info),
 
-    %% some more
+    %% Test a track
+    ct:print("A track:~n~p", [T]),
+    "Carousel" = T#sp_track.track_name,
+
+    Album = T#sp_track.album,
+    "Next To Me" = Album#sp_album.name,
+    2010 = Album#sp_album.year,
+
+    %% load some more
     {ok, _} = espotify_nif:track_info("spotify:track:2feyopBofIiN35tyhGtlZD"),
     {ok, _} = espotify_nif:track_info("spotify:track:4vrcVOWlA2B1pMAMmohaeL"),
     {ok, _} = expect_callback(track_info),

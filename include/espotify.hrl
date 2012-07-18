@@ -34,7 +34,7 @@
      is_starred :: boolean(),
      link :: string(),
      %% artists :: [#sp_artist{}],
-     %% album :: #sp_album{},
+     album :: #sp_album{},
      track_name :: string(),
      duration :: non_neg_integer(),
      popularity :: non_neg_integer(),
