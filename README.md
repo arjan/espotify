@@ -65,11 +65,11 @@ by Rick Astley :P)
 Running the tests
 -----------------
 
-espotify comes with a CT test suites; to run it, create a
+espotify comes with a bunch of CT test suites; to run it, create a
 `test/app.config` with your spotify credentials (copy
 `test/app.config.in` as example); and then run the tests:
 
-    rebar compile ct -v
+    rebar ct -v suites=espotify_nif_playback
     
 If everything is OK, you should see the tests logging in to Spotify,
 playing a part of a song, etc.
