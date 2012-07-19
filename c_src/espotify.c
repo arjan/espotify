@@ -237,7 +237,7 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
 {
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
-    DBG("AAA");
+
     char link[MAX_LINK];
     char *error_msg;
 
@@ -246,7 +246,6 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
 
     ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
     *reference = enif_make_ref(priv->callback_env);
-    DBG("BBB");
     
     switch (spotifyctl_browse_album(link, (void *)reference, &error_msg))
     {

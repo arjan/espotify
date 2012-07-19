@@ -521,7 +521,6 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
     }
 
     esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
-    sp_track_release(track);
     
     return CMD_RESULT_OK;
 }
@@ -548,7 +547,6 @@ int spotifyctl_browse_album(const char *link_str, void *reference, char **error_
     }
     sp_albumbrowse *browse = sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
     sp_link_release(link);
-    sp_album_release(album);
     
     return CMD_RESULT_OK;
 }

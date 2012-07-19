@@ -8,20 +8,17 @@
 
 all() ->
     [
+     test_start,
      test_track_info,
      test_browse_album
     ].
 
-init_per_suite(Config) ->
+test_start(_Config) ->
     {ok, Username} = application:get_env(espotify, username),
     {ok, Password} = application:get_env(espotify, password),
     ok = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", Username, Password),
     expect_callback(logged_in),
-    Config.
-
-end_per_suite(R) ->
-    espotify_nif:stop(),
-    R.
+    ok.
 
 expect_callback(Callback) ->
     receive
