@@ -223,13 +223,10 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
     ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
     *reference = enif_make_ref(priv->callback_env);
     
-    switch (spotifyctl_track_info(link, (void *)reference, &error_msg))
-    {
-    case CMD_RESULT_ERROR:
+    if (spotifyctl_do_cmd2(CMD_TRACK_INFO, (void *)link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
         return STR_ERROR(env, error_msg);
-    case CMD_RESULT_OK:
-        return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
     }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
 
@@ -247,13 +244,10 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
     ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
     *reference = enif_make_ref(priv->callback_env);
     
-    switch (spotifyctl_browse_album(link, (void *)reference, &error_msg))
-    {
-    case CMD_RESULT_ERROR:
+    if (spotifyctl_browse_album(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
         return STR_ERROR(env, error_msg);
-    case CMD_RESULT_OK:
-        return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
     }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
 

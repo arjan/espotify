@@ -203,15 +203,21 @@ static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
  */
 static void container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
-    fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
-            sp_playlistcontainer_num_playlists(pc));
+    if (userdata == NULL) {
+        // Session playlist container
 
-    if (g_state.playlist_container) {
-        sp_playlistcontainer_release(g_state.playlist_container);
+        fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
+                sp_playlistcontainer_num_playlists(pc));
+
+        if (g_state.playlist_container) {
+            sp_playlistcontainer_release(g_state.playlist_container);
+        }
+
+        sp_playlistcontainer_add_ref(pc);
+        g_state.playlist_container = pc;
+
+//        esp_player_playlist_container_feedback(g_state.erl_pid, g_state.session, NULL, pc);
     }
-
-    sp_playlistcontainer_add_ref(pc);
-    g_state.playlist_container = pc;
 }
 
 
@@ -426,6 +432,18 @@ int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg)
     return wait_for_cmd_result();
 }
 
+int spotifyctl_do_cmd2(char cmd, void *arg1, void *arg2, char **error_msg)
+{
+    pthread_mutex_lock(&g_state.notify_mutex);
+    g_state.cmd = cmd;
+    g_state.cmd_error_msg = error_msg;
+    g_state.cmd_arg1 = arg1;
+    g_state.cmd_arg2 = arg2;
+    pthread_cond_signal(&g_state.notify_cond);
+    pthread_mutex_unlock(&g_state.notify_mutex);
+    return wait_for_cmd_result();
+}
+
 //int spotifyctl_do_cmd1(spotifyctl_cmd cmd, void *arg1, char **error_msg);
 //int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
 
@@ -498,30 +516,35 @@ sp_session *spotifyctl_get_session()
     return g_state.session;
 }
 
-int spotifyctl_track_info(const char *link_str, void *reference, char **error_msg)
+int _spotifyctl_track_info(const char *link_str, void *reference, char **error_msg)
 {
     sp_link *link;
-    
+
     link = sp_link_create_from_string(link_str);
     CHECK_VALID_LINK(link);
-
+    DBG("aa");
     sp_track *track;
     track = sp_link_as_track(link);
     if (!track) {
         sp_link_release(link);
         *error_msg = "Link is not a track";
         return CMD_RESULT_ERROR;
-    }
+    } 
+    DBG("bb");
     sp_track_add_ref(track);
     sp_link_release(link);
+    DBG("cc");
 
     if (!sp_track_is_loaded(track)) {
         load_queue_add(reference, track);
+        DBG("dd");
         return CMD_RESULT_OK;
     }
+    DBG("ee");
 
     esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
-    
+    DBG("ff");
+
     return CMD_RESULT_OK;
 }
 
@@ -711,6 +734,10 @@ int spotifyctl_run(void *erl_pid,
                 }
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
+            case CMD_TRACK_INFO:
+                g_state.cmd_result = _spotifyctl_track_info((char *)g_state.cmd_arg1, (void *)g_state.cmd_arg2, g_state.cmd_error_msg);
+                break;
+
             default:
                 fprintf(stderr, "Unknown client command: %d\n\r", cmd);
                 g_state.cmd_result = CMD_RESULT_ERROR;

@@ -14,7 +14,6 @@ int spotifyctl_has_current_track();
 sp_track *spotifyctl_current_track();
 sp_session *spotifyctl_get_session();
 
-int spotifyctl_track_info(const char *link, void *reference, char **error_msg);
 int spotifyctl_browse_album(const char *link, void *reference, char **error_msg);
 
 #define CMD_STOP 1
@@ -23,6 +22,7 @@ int spotifyctl_browse_album(const char *link, void *reference, char **error_msg)
 #define CMD_PLAYER_PREFETCH 12
 #define CMD_PLAYER_SEEK     13
 #define CMD_PLAYER_UNLOAD   14
+#define CMD_TRACK_INFO      15
 
 #define CMD_RESULT_OK 0
 #define CMD_RESULT_ERROR 1
@@ -30,7 +30,7 @@ int spotifyctl_browse_album(const char *link, void *reference, char **error_msg)
 
 int spotifyctl_do_cmd0(char cmd, char **error_msg);
 int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg);
-//int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
+int spotifyctl_do_cmd2(char cmd, void *arg1, void *arg2, char **error_msg);
 
 
 

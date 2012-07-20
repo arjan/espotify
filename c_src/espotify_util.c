@@ -281,3 +281,30 @@ void esp_player_browse_album_feedback(void *erl_pid, sp_session *session, void *
         );
     enif_clear_env(env);
 }
+
+void esp_player_playlist_container_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container)
+{
+    ErlNifEnv* env = temp_env();
+    ERL_NIF_TERM ref_term;
+
+    if (refptr != NULL) {
+        // Copy the reference to the enif_send temp environment
+        ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
+        ref_term = enif_make_copy(env, *ref);
+        enif_free(refptr);
+    } else {
+        ref_term = enif_make_atom(env, "undefined");
+    }
+
+    DBG("AA");        
+    /* callback_result(erl_pid, */
+    /*                 "browse_album", */
+    /*                 OK_TERM(env, */
+    /*                         enif_make_tuple2( */
+    /*                             env, */
+    /*                             ref_term, */
+    /*                             albumbrowse_tuple(env, session, albumbrowse)) */
+    /*                     ) */
+    /*     ); */
+    enif_clear_env(env);
+}
