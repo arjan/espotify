@@ -248,14 +248,15 @@ void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refpt
     ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
     ERL_NIF_TERM ref_term = enif_make_copy(env, *ref);
     enif_free(refptr);
-        
+
     callback_result(erl_pid,
                     "track_info",
                     OK_TERM(env,
                             enif_make_tuple2(
                                 env,
-                                ref_term,
-                                track_tuple(env, sess, track, 1))
+//                                ref_term,
+                                enif_make_atom(env, "track"),
+                                enif_make_atom(env, "track")) //track_tuple(env, sess, track, 1))
                         )
         );
     enif_clear_env(env);

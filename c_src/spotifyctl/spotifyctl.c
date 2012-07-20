@@ -58,8 +58,6 @@ typedef struct {
 
     // The global session handle
     sp_session *session;
-    // The global user handle
-    sp_user *user;
     // The playlist container
     sp_playlistcontainer *playlist_container;
 
@@ -264,6 +262,11 @@ static void logged_in(sp_session *sess, sp_error error)
     esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
 }
 
+static void logged_out(sp_session *sess)
+{
+    g_state.running = 0;
+}
+
 /**
  * This callback is called from an internal libspotifyctl thread to ask us to
  * reiterate the main loop.
@@ -382,6 +385,7 @@ static void play_token_lost(sp_session *sess)
  */
 static sp_session_callbacks session_callbacks = {
     .logged_in = &logged_in,
+    .logged_out = &logged_out,
     .notify_main_thread = &notify_main_thread,
     .music_delivery = &music_delivery,
     .metadata_updated = &metadata_updated,
@@ -516,7 +520,7 @@ sp_session *spotifyctl_get_session()
     return g_state.session;
 }
 
-int _spotifyctl_track_info(const char *link_str, void *reference, char **error_msg)
+int spotifyctl_track_info(const char *link_str, void *reference, char **error_msg)
 {
     sp_link *link;
 
@@ -713,7 +717,8 @@ int spotifyctl_run(void *erl_pid,
             switch (cmd)
             {
             case CMD_STOP:
-                g_state.running = 0;
+                sp_session_logout(g_state.session);
+                g_state.cmd_result = CMD_RESULT_OK;
                 break;
             case CMD_PLAYER_LOAD:
                 handle_cmd_player_load();
@@ -734,9 +739,6 @@ int spotifyctl_run(void *erl_pid,
                 }
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
-            case CMD_TRACK_INFO:
-                g_state.cmd_result = _spotifyctl_track_info((char *)g_state.cmd_arg1, (void *)g_state.cmd_arg2, g_state.cmd_error_msg);
-                break;
 
             default:
                 fprintf(stderr, "Unknown client command: %d\n\r", cmd);
@@ -753,10 +755,9 @@ int spotifyctl_run(void *erl_pid,
     if (g_state.playlist_container) {
         sp_playlistcontainer_release(g_state.playlist_container);
     }
-    if (g_state.user) {
-        sp_user_release(g_state.user);
-    }
 
+    sp_session_release(g_state.session);
+    //g_state.session = NULL;
     //DBG("Exit main loop");
 
     return 0;

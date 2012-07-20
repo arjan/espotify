@@ -14,4 +14,6 @@ ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist);
 ERL_NIF_TERM album_tuple(ErlNifEnv* env, sp_session *sess, sp_album *album, int recurse);
 ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *session, sp_track *track, int recurse);
 
+ErlNifEnv *temp_env();
+
 #endif
