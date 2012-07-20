@@ -23,7 +23,6 @@ int spotifyctl_browse_album(const char *link, void *reference, char **error_msg)
 #define CMD_PLAYER_PREFETCH 12
 #define CMD_PLAYER_SEEK     13
 #define CMD_PLAYER_UNLOAD   14
-#define CMD_TRACK_INFO      15
 
 #define CMD_RESULT_OK 0
 #define CMD_RESULT_ERROR 1

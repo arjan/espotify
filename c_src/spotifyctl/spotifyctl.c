@@ -526,7 +526,7 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
 
     link = sp_link_create_from_string(link_str);
     CHECK_VALID_LINK(link);
-    DBG("aa");
+
     sp_track *track;
     track = sp_link_as_track(link);
     if (!track) {
@@ -534,21 +534,11 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
         *error_msg = "Link is not a track";
         return CMD_RESULT_ERROR;
     } 
-    DBG("bb");
+
     sp_track_add_ref(track);
     sp_link_release(link);
-    DBG("cc");
 
-    if (!sp_track_is_loaded(track)) {
-        load_queue_add(reference, track);
-        DBG("dd");
-        return CMD_RESULT_OK;
-    }
-    DBG("ee");
-
-    esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
-    DBG("ff");
-
+    load_queue_add(reference, track);
     return CMD_RESULT_OK;
 }
 
@@ -616,8 +606,8 @@ void load_queue_check()
             // clean up
             sp_track_release(q->track);
             free(q);
-        }
-        prevq = q;
+        } else
+            prevq = q;
         q = q->next;
     }
 }
@@ -716,10 +706,6 @@ int spotifyctl_run(void *erl_pid,
 
             switch (cmd)
             {
-            case CMD_STOP:
-                sp_session_logout(g_state.session);
-                g_state.cmd_result = CMD_RESULT_OK;
-                break;
             case CMD_PLAYER_LOAD:
                 handle_cmd_player_load();
                 break;
@@ -756,9 +742,8 @@ int spotifyctl_run(void *erl_pid,
         sp_playlistcontainer_release(g_state.playlist_container);
     }
 
-    sp_session_release(g_state.session);
-    //g_state.session = NULL;
-    //DBG("Exit main loop");
+    // cant release the session here since creating another one fails.
+    // instead, the session is released on module unload.
 
     return 0;
 }

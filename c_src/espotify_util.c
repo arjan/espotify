@@ -254,9 +254,8 @@ void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refpt
                     OK_TERM(env,
                             enif_make_tuple2(
                                 env,
-//                                ref_term,
-                                enif_make_atom(env, "track"),
-                                enif_make_atom(env, "track")) //track_tuple(env, sess, track, 1))
+                                ref_term,
+                                track_tuple(env, sess, track, 1))
                         )
         );
     enif_clear_env(env);

@@ -40,7 +40,7 @@ expect_callback(Callback) ->
             ct:print("???? ~p", [R]),
             throw({error, bad_response})
     after
-        10000 ->
+        20000 ->
             ct:print("No response"),
             throw({error, no_response})
     end.

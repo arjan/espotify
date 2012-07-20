@@ -86,9 +86,8 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ASSERT_STARTED(priv);
 
     void *resp;
-    char *error_msg;
-    if (spotifyctl_do_cmd0(CMD_STOP, &error_msg))
-        return enif_make_badarg(env);
+
+    sp_session_logout(spotifyctl_get_session());
 
     // wait for spotify thread to exit
     enif_thread_join(priv->session->tid, &resp);
@@ -272,6 +271,9 @@ static void unload(ErlNifEnv* env, void* priv_data)
 
         // wait for spotify thread to exit
         enif_thread_join(priv->session->tid, &resp);
+
+        // only release the session here..!
+        sp_session_release(spotifyctl_get_session());
 
         enif_free(priv->session);
         priv->session = NULL;

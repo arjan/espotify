@@ -8,31 +8,31 @@
 
 all() ->
     [
-     test_start,
      test_track_info,
      test_browse_album
-     
     ].
 
-test_start(_Config) ->
+init_per_suite(_Config) ->
     {ok, Username} = application:get_env(espotify, username),
     {ok, Password} = application:get_env(espotify, password),
-    ok = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", Username, Password),
+    ok = espotify_nif:start(self(), "tmp", "tmp", Username, Password),
     expect_callback(logged_in),
-    ok.
+    _Config.
+
+end_per_suite(_Config) ->
+    ct:print("stopping"),
+    espotify_nif:stop(),
+    _Config.
 
 expect_callback(Callback) ->
     receive
         {'$spotify_callback', Callback, Result} ->
             Result;
-        debug ->
-            ct:print("Debug"),
-            expect_callback(Callback);
         R ->
             ct:print("???? ~p", [R]),
             throw({error, bad_response})
     after
-        10000 ->
+        20000 ->
             ct:print("No response"),
             throw({error, no_response})
     end.
@@ -40,27 +40,13 @@ expect_callback(Callback) ->
 
 test_track_info(_) ->
     ok = espotify_nif:set_pid(self()),
-    ct:print("Doing some repeated stuff 1"),    
 
-    [begin
-         {error, "Parsing link failed"} = espotify_nif:track_info("fdsalfjdsaflldsafads"),
-         timer:sleep(100)
-     end || _ <- lists:seq(1, 100)],
-
-    ct:print("OK!"),    
+    {error, "Parsing link failed"} = espotify_nif:track_info("fdsalfjdsaflldsafads"),
 
     %% Get info for a track
     {ok, Ref1} = espotify_nif:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
     %% Wait for the callback with the track info
     {ok, {Ref1, T=#sp_track{}}} = expect_callback(track_info),
-
-    ct:print("Doing some repeated stuff"),    
-    [begin
-         {ok, R} = espotify_nif:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
-         %% Wait for the callback with the track info
-         {ok, {R, #sp_track{}}} = expect_callback(track_info)
-     end || _ <- lists:seq(1, 20)],
-
 
     %% Test a track
     ct:print("A track:~n~p", [T]),
@@ -77,6 +63,10 @@ test_track_info(_) ->
     %% load some more
     {ok, _} = espotify_nif:track_info("spotify:track:2feyopBofIiN35tyhGtlZD"),
     {ok, _} = espotify_nif:track_info("spotify:track:4vrcVOWlA2B1pMAMmohaeL"),
+    {ok, _} = espotify_nif:track_info("spotify:track:5Xs1BaGAJ6tCb79VFfcyeu"),
+    {ok, _} = espotify_nif:track_info("spotify:track:5YKzk2Kfd7ESyaAbQUKjpT"),
+    {ok, _} = expect_callback(track_info),
+    {ok, _} = expect_callback(track_info),
     {ok, _} = expect_callback(track_info),
     {ok, _} = expect_callback(track_info),
 
@@ -88,7 +78,7 @@ test_browse_album(_) ->
 
     %%{error, "Parsing link failed"} = espotify_nif:browse_album("fdsalfjdsaflldsafads"),
     %% Get info for a track
-    {ok, _Ref1} = espotify_nif:browse_album("spotify:album:6WgGWYw6XXQyLTsWt7tXky"),
-    {ok, AB} = expect_callback(browse_album),
-    ct:print("~p", [AB]),
+    {ok, Ref1} = espotify_nif:browse_album("spotify:album:6WgGWYw6XXQyLTsWt7tXky"),
+    {ok, {Ref1, Album=#sp_albumbrowse{}}} = expect_callback(browse_album),
+    ct:print("~p", [Album]),
     ok.
