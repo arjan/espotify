@@ -83,7 +83,8 @@ typedef struct {
 
     spotifyctl_load_queue *load_queue_head;
     spotifyctl_load_queue *load_queue_tail;
-    
+
+    int first_session; // non-zero when this is the first time this session is used
 } spotifyctl_state;
 
 static spotifyctl_state g_state = {0};
@@ -244,20 +245,21 @@ static void logged_in(sp_session *sess, sp_error error)
     }
 
     sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
-    
-    sp_playlistcontainer_add_callbacks(
-        pc,
-        &pc_callbacks,
-        NULL);
 
-    
-    fprintf(stderr, "spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc));
-
-    int i;
-    for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) {
-        sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
-        sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
+    if (g_state.first_session) {
+        sp_playlistcontainer_add_callbacks(
+            pc,
+            &pc_callbacks,
+            NULL);
     }
+    
+    /* fprintf(stderr, "spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc)); */
+
+    /* int i; */
+    /* for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) { */
+    /*     sp_playlist *pl = sp_playlistcontainer_playlist(pc, i); */
+    /*     sp_playlist_add_callbacks(pl, &pl_callbacks, NULL); */
+    /* } */
 
     esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
 }
@@ -612,6 +614,14 @@ void load_queue_check()
     }
 }
 
+void spotifyctl_stop()
+{
+    if (g_state.current_track != NULL) {
+        sp_session_player_unload(g_state.session);
+        g_state.current_track = NULL;
+    }
+    sp_session_logout(g_state.session);
+}
 
 int spotifyctl_run(void *erl_pid,
                    const char *cache_location,
@@ -645,6 +655,9 @@ int spotifyctl_run(void *erl_pid,
                     sp_error_message(err));
             exit(1);
         }
+        g_state.first_session = 1;
+    } else {
+        g_state.first_session = 0;
     }
 
     pthread_mutex_init(&g_state.notify_mutex, NULL);
@@ -740,10 +753,30 @@ int spotifyctl_run(void *erl_pid,
     // Cleaning up
     if (g_state.playlist_container) {
         sp_playlistcontainer_release(g_state.playlist_container);
+    g_state.playlist_container = NULL;
+    }
+
+    // clear the state
+    g_state.running = 0;
+    g_state.erl_pid = NULL;
+    if (g_state.player_load_track) {
+        sp_track_release(g_state.player_load_track);
+        g_state.player_load_track = NULL;
+    }
+    g_state.paused = 0;
+    g_state.cmd = 0;
+    g_state.cmd_arg1 = NULL;
+    g_state.cmd_arg2 = NULL;
+
+    spotifyctl_load_queue *q = g_state.load_queue_head, *next;
+    while (q) {
+        sp_track_release(q->track);
+        next = q->next;
+        free(q);
+        q = next;
     }
 
     // cant release the session here since creating another one fails.
-    // instead, the session is released on module unload.
 
     return 0;
 }

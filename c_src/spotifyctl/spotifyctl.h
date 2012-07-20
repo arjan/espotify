@@ -10,6 +10,7 @@ int spotifyctl_run(void *erl_pid, const char *cache_location, const char *settin
                    const char *username, const char *password);
 void spotifyctl_set_pid(void *erl_pid);
 int spotifyctl_has_current_track();
+void spotifyctl_stop();
 
 sp_track *spotifyctl_current_track();
 sp_session *spotifyctl_get_session();

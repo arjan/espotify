@@ -20,7 +20,6 @@ init_per_suite(_Config) ->
     _Config.
 
 end_per_suite(_Config) ->
-    ct:print("stopping"),
     espotify_nif:stop(),
     _Config.
 
