@@ -100,30 +100,51 @@ void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
 }
 
 
-ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, const byte *image)
+ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, sp_image *image)
 {
-    ErlNifBinary bin;
-    enif_alloc_binary(20, &bin);
-    bin.size = 20;
-    memcpy(bin.data, image, 20);
+    ErlNifBinary id_bin;
+    enif_alloc_binary(20, &id_bin);
+    id_bin.size = 20;
+    memcpy(id_bin.data, sp_image_image_id(image), 20);
 
-    return enif_make_tuple2(
+    size_t data_sz;
+    void *image_data = sp_image_data(image, &data_sz);
+    ErlNifBinary data_bin;
+    enif_alloc_binary(data_sz, &data_bin);
+    id_bin.size = data_sz;
+    memcpy(data_bin.data, image_data, data_sz);
+
+    return enif_make_tuple4(
         env,
         enif_make_atom(env, "sp_image"),
-        enif_make_binary(env, &bin)
+        enif_make_atom(env, sp_image_format(image) == SP_IMAGE_FORMAT_JPEG  ? "jpeg" : "unknown"),
+        enif_make_binary(env, &data_bin),
+        enif_make_binary(env, &id_bin)
         );
 }
-
 
 ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
 {
     char link_str[MAX_LINK];
+    char portrait_link_str[MAX_LINK];
+    sp_link *link;
+    int has_portrait = 0;
 
-    sp_link *link = sp_link_create_from_artist(artist);
+    link = sp_link_create_from_artist(artist);
     sp_link_as_string(link, link_str, MAX_LINK);
     sp_link_release(link);
 
     int loaded = sp_artist_is_loaded(artist);
+
+    if (loaded) {
+        link = sp_link_create_from_artist_portrait(artist, SP_IMAGE_SIZE_NORMAL);
+        if (link) {
+            has_portrait = 1;
+            sp_link_as_string(link, portrait_link_str, MAX_LINK);
+            sp_link_release(link);
+        }
+    }
+
     ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
 
     return enif_make_tuple(
@@ -133,8 +154,7 @@ ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
         BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
         loaded ? enif_make_string(env, sp_artist_name(artist), ERL_NIF_LATIN1) : undefined,
-        // FIXME: this segfaults
-        undefined //loaded ? image_tuple(env, sess, sp_artist_portrait(artist, SP_IMAGE_SIZE_NORMAL)) : undefined
+        (loaded && has_portrait) ? enif_make_string(env, portrait_link_str, ERL_NIF_LATIN1) : undefined
         );
 }
 
@@ -221,7 +241,6 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track, int 
 
 ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse *albumbrowse)
 {
-    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
     int total, i;
     ERL_NIF_TERM *list;
 
@@ -257,7 +276,6 @@ ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse 
 
 ERL_NIF_TERM artistbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_artistbrowse *artistbrowse)
 {
-    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
     int total, i;
     ERL_NIF_TERM *list;
 
@@ -301,7 +319,11 @@ ERL_NIF_TERM artistbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_artistbrows
     total = sp_artistbrowse_num_portraits(artistbrowse);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
-        list[i] = image_tuple(env, sess, sp_artistbrowse_portrait(artistbrowse, i));
+        sp_link *link = sp_link_create_from_artistbrowse_portrait(artistbrowse, i);
+        char link_str[MAX_LINK];
+        sp_link_as_string(link, link_str, MAX_LINK);
+        sp_link_release(link);
+        list[i] = enif_make_string(env, link_str, ERL_NIF_LATIN1);
     }
     ERL_NIF_TERM portraits = enif_make_list_from_array(env, list, total);
     enif_free(list);
@@ -398,21 +420,27 @@ void esp_player_browse_artist_feedback(void *erl_pid, sp_session *session, void 
     enif_clear_env(env);
 }
 
+void esp_player_load_image_feedback(void *erl_pid, sp_session *session, void *refptr, sp_image *image)
+{
+    ErlNifEnv* env = temp_env();
+        
+    callback_result(erl_pid,
+                    "load_image",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                return_reference((ERL_NIF_TERM *)refptr),
+                                image_tuple(env, session, image))
+                        )
+        );
+    enif_clear_env(env);
+}
+
+
 void esp_player_playlist_container_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container)
 {
     ErlNifEnv* env = temp_env();
-    ERL_NIF_TERM ref_term;
 
-    if (refptr != NULL) {
-        // Copy the reference to the enif_send temp environment
-        ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
-        ref_term = enif_make_copy(env, *ref);
-        enif_free(refptr);
-    } else {
-        ref_term = enif_make_atom(env, "undefined");
-    }
-
-    DBG("AA");        
     /* callback_result(erl_pid, */
     /*                 "browse_album", */
     /*                 OK_TERM(env, */

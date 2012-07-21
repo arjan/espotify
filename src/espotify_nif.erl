@@ -29,7 +29,8 @@
 
          track_info/1,
          browse_album/1,
-         browse_artist/2
+         browse_artist/2,
+         load_image/1
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -132,3 +133,11 @@ browse_album(_) ->
 -spec browse_artist(string(), full | no_tracks | no_albums) -> {ok, reference()}.
 browse_artist(_, _) ->
     ?NOT_LOADED.
+
+%% @doc Load image from link, asynchronously
+%%
+%% <pre>{'$spotify_callback', load_image, {ok, {reference(), #sp_image{}}}} </pre>
+-spec load_image(string()) -> {ok, reference()}.
+load_image(_) ->
+    ?NOT_LOADED.
+

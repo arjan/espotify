@@ -8,10 +8,11 @@
 
 all() ->
     [
-%     test_track_info,
-%     test_browse_album
+     test_track_info,
+     test_browse_album,
      test_browse_artist,
-     test_browse_artist_full
+     test_browse_artist_full,
+     test_image
     ].
 
 init_per_suite(_Config) ->
@@ -100,7 +101,7 @@ test_browse_artist(_) ->
 
     {ok, Ref1} = espotify_nif:browse_artist("spotify:artist:2CvCyf1gEVhI0mX6aFXmVI", no_tracks),
     {ok, {Ref1, ArtistBrowse=#sp_artistbrowse{}}} = expect_callback(browse_artist),
-    %ct:print("~p", [ArtistBrowse]),
+    ct:print("~p", [ArtistBrowse]),
 
     "Paul Simon" = ArtistBrowse#sp_artistbrowse.artist#sp_artist.name,
     
@@ -120,3 +121,15 @@ test_browse_artist_full(_) ->
     true = (length(ArtistBrowse#sp_artistbrowse.tracks) > 0),
     true = (length(ArtistBrowse#sp_artistbrowse.albums) > 0),
     ok.
+
+
+test_image(_) ->
+    ok = espotify_nif:set_pid(self()),
+    {ok, Ref1} = espotify_nif:load_image("spotify:image:930de222ed6ad8bacf7eacbcb09214818a9e6b3b"),
+    {ok, {Ref1, Image=#sp_image{}}} = expect_callback(load_image),
+
+    %ct:print("~p", [Image]),
+    ok = file:write_file("/tmp/test.jpg", Image#sp_image.data),
+    ct:print("Written test image to /tmp/test.jpg; inspect for yourself :)"),
+    ok.
+    

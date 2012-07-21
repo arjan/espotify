@@ -283,6 +283,27 @@ static ERL_NIF_TERM espotify_browse_artist(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
+static ERL_NIF_TERM espotify_load_image(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(priv->callback_env);
+
+    if (spotifyctl_load_image(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
+        return STR_ERROR(env, error_msg);
+    }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+}
+
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
@@ -297,12 +318,10 @@ static void unload(ErlNifEnv* env, void* priv_data)
 {
     espotify_private *priv = (espotify_private *)priv_data;
     if (priv->session) {
-        void *resp;
-        char error_msg[255];
-
         spotifyctl_stop();
 
         // wait for spotify thread to exit
+        void *resp;
         enif_thread_join(priv->session->tid, &resp);
 
         enif_free(priv->session);
@@ -327,7 +346,8 @@ static ErlNifFunc nif_funcs[] =
 
     {"track_info", 1, espotify_track_info},
     {"browse_album", 1, espotify_browse_album},
-    {"browse_artist", 2, espotify_browse_artist}
+    {"browse_artist", 2, espotify_browse_artist},
+    {"load_image", 1, espotify_load_image}
     
 };
 

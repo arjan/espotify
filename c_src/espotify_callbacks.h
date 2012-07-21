@@ -10,6 +10,7 @@ void esp_player_load_feedback(void *erl_pid, sp_session *session, sp_track *trac
 void esp_player_track_info_feedback(void *erl_pid, sp_session *session, void *reference, sp_track *track);
 void esp_player_browse_album_feedback(void *erl_pid, sp_session *session, void *reference, sp_albumbrowse *albumbrowse);
 void esp_player_browse_artist_feedback(void *erl_pid, sp_session *session, void *reference, sp_artistbrowse *artistbrowse);
+void esp_player_load_image_feedback(void *erl_pid, sp_session *session, void *reference, sp_image *image);
 
 void esp_player_playlist_container_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container);
 

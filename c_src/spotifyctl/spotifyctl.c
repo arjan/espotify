@@ -596,6 +596,37 @@ int spotifyctl_browse_artist(const char *link_str, sp_artistbrowse_type type, vo
     return CMD_RESULT_OK;
 }
 
+void spotifyctl_load_image_complete(sp_image *result, void *reference)
+{
+    esp_player_load_image_feedback(g_state.erl_pid, g_state.session, reference, result);
+    sp_image_release(result);
+}
+
+int spotifyctl_load_image(const char *link_str, void *reference, char **error_msg)
+{
+    sp_link *link;
+    
+    link = sp_link_create_from_string(link_str);
+    CHECK_VALID_LINK(link);
+
+    if (sp_link_type(link) != SP_LINKTYPE_IMAGE) {
+        sp_link_release(link);
+        *error_msg = "Link is not an image";
+        return CMD_RESULT_ERROR;
+    }
+
+    sp_image *image = sp_image_create_from_link(g_state.session, link);
+    sp_link_release(link);
+    if (!image) {
+        *error_msg = "Error creating image from link";
+        return CMD_RESULT_ERROR;
+    }
+
+    sp_image_add_load_callback(image, spotifyctl_load_image_complete, reference);
+    
+    return CMD_RESULT_OK;
+}
+
 void load_queue_add(void *reference, sp_track *track)
 {
 

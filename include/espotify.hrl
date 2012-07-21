@@ -69,7 +69,9 @@
 -record(
    sp_image,
    {
-     ref :: binary()
+     format :: unknown | jpeg,
+     data :: binary(),
+     id :: binary()
    }).
 
 -record(
