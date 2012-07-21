@@ -240,21 +240,33 @@ void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track)
 }
 
 
+ERL_NIF_TERM *obtain_reference(ErlNifEnv *creation_env)
+{
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(creation_env);
+    return reference;
+}
+
+ERL_NIF_TERM return_reference(ERL_NIF_TERM *refptr)
+{
+    // Copy the reference to the enif_send temp environment
+    ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
+    ERL_NIF_TERM ref_term = enif_make_copy(temp_env(), *ref);
+    enif_free(refptr);
+    return ref_term;
+}
+
+
 void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refptr, sp_track *track)
 {
     ErlNifEnv* env = temp_env();
-
-    // Copy the reference to the enif_send temp environment
-    ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
-    ERL_NIF_TERM ref_term = enif_make_copy(env, *ref);
-    enif_free(refptr);
 
     callback_result(erl_pid,
                     "track_info",
                     OK_TERM(env,
                             enif_make_tuple2(
                                 env,
-                                ref_term,
+                                return_reference((ERL_NIF_TERM *)refptr),
                                 track_tuple(env, sess, track, 1))
                         )
         );
@@ -264,18 +276,13 @@ void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refpt
 void esp_player_browse_album_feedback(void *erl_pid, sp_session *session, void *refptr, sp_albumbrowse *albumbrowse)
 {
     ErlNifEnv* env = temp_env();
-
-    // Copy the reference to the enif_send temp environment
-    ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
-    ERL_NIF_TERM ref_term = enif_make_copy(env, *ref);
-    enif_free(refptr);
         
     callback_result(erl_pid,
                     "browse_album",
                     OK_TERM(env,
                             enif_make_tuple2(
                                 env,
-                                ref_term,
+                                return_reference((ERL_NIF_TERM *)refptr),
                                 albumbrowse_tuple(env, session, albumbrowse))
                         )
         );

@@ -16,4 +16,7 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *session, sp_track *track, i
 
 ErlNifEnv *temp_env();
 
+ERL_NIF_TERM *obtain_reference(ErlNifEnv *creation_env);
+ERL_NIF_TERM return_reference(ERL_NIF_TERM *ref);
+
 #endif
