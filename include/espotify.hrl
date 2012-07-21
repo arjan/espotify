@@ -77,13 +77,19 @@
 -record(
    sp_playlist_track,
    {
+     track :: #sp_track{},
+     create_time  :: non_neg_integer(),
+     creator :: #sp_user{},
+     seen :: boolean(),
+     message :: string()
    }).
 
 -record(
    sp_playlist,
    {
-     name :: string(),
      link :: string(),
+     name :: string(),
+     description :: string(),
      image :: string(),
      owner :: #sp_user{},
      collaborative :: boolean(),
@@ -94,7 +100,11 @@
    sp_playlistcontainer,
    {
      owner :: #sp_user{},
-     contents :: [#sp_playlist{} | {start_folder, Id::integer(), Name::string()} | end_folder | placeholder]
+     contents :: [#sp_playlist{} |
+                  not_loaded |
+                  {start_folder, Id::integer(), Name::string()} | 
+                  end_folder | 
+                  placeholder]
    }).
 
 -record(

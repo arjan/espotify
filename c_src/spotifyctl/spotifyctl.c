@@ -25,7 +25,7 @@
 extern const char g_appkey[];
 extern const size_t g_appkey_size;
 
-typedef struct load_queue {
+struct load_queue {
     sp_track *track;
     void *reference;
     struct load_queue *next;
@@ -88,7 +88,7 @@ typedef struct {
     int first_session; // non-zero when this is the first time this session is used
 } spotifyctl_state;
 
-static spotifyctl_state g_state = {0};
+static spotifyctl_state g_state = {};
     
 
 
@@ -162,41 +162,7 @@ static sp_playlist_callbacks pl_callbacks = {
 
 
 /* --------------------  PLAYLIST CONTAINER CALLBACKS  --------------------- */
-/**
- * Callback from libspotifyctl, telling us a playlist was added to the playlist container.
- *
- * We add our playlist callbacks to the newly added playlist.
- *
- * @param  pc            The playlist container handle
- * @param  pl            The playlist handle
- * @param  position      Index of the added playlist
- * @param  userdata      The opaque pointer
- */
-static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
-                           int position, void *userdata)
-{
-}
 
-/**
- * Callback from libspotifyctl, telling us a playlist was removed from the playlist container.
- *
- * This is the place to remove our playlist callbacks.
- *
- * @param  pc            The playlist container handle
- * @param  pl            The playlist handle
- * @param  position      Index of the removed playlist
- * @param  userdata      The opaque pointer
- */
-static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
-                             int position, void *userdata)
-{
-    sp_playlist_remove_callbacks(pl, &pl_callbacks, NULL);
-}
-
-
-/**
- * The playlist container callbacks
- */
 static void user_container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
     g_state.playlistcontainer = pc;
@@ -476,7 +442,7 @@ void handle_cmd_player_load()
     err = sp_session_player_load(g_state.session, track);
     if (err != SP_ERROR_OK) {
         g_state.cmd_result = CMD_RESULT_ERROR;
-        *g_state.cmd_error_msg = sp_error_message(err);
+        strcpy(*g_state.cmd_error_msg, sp_error_message(err));
         return;
     }
 
@@ -549,7 +515,7 @@ int spotifyctl_browse_album(const char *link_str, void *reference, char **error_
         *error_msg = "Link is not an album";
         return CMD_RESULT_ERROR;
     }
-    sp_albumbrowse *browse = sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
+    sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
     sp_link_release(link);
     
     return CMD_RESULT_OK;
@@ -575,7 +541,7 @@ int spotifyctl_browse_artist(const char *link_str, sp_artistbrowse_type type, vo
         *error_msg = "Link is not an artist";
         return CMD_RESULT_ERROR;
     }
-    sp_artistbrowse *browse = sp_artistbrowse_create(g_state.session, artist, type, spotifyctl_artistbrowse_complete, reference);
+    sp_artistbrowse_create(g_state.session, artist, type, spotifyctl_artistbrowse_complete, reference);
     sp_link_release(link);
     
     return CMD_RESULT_OK;

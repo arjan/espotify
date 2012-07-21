@@ -63,7 +63,7 @@ ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, sp_image *image)
     memcpy(id_bin.data, sp_image_image_id(image), 20);
 
     size_t data_sz;
-    void *image_data = sp_image_data(image, &data_sz);
+    const void *image_data = sp_image_data(image, &data_sz);
     ErlNifBinary data_bin;
     enif_alloc_binary(data_sz, &data_bin);
     id_bin.size = data_sz;
@@ -391,8 +391,8 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
         5,
         enif_make_atom(env, "sp_playlist"),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
-        enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
-        enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
+        undefined,
+        undefined
         );
 }
 
@@ -400,16 +400,28 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
 {
     ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
     char foldername[MAX_LINK];
+    char link_str[MAX_LINK];
 
     int total, i;
     ERL_NIF_TERM *list;
+    sp_playlist *pl;
+    sp_link *link;
 
     total = sp_playlistcontainer_num_playlists(container);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
         switch (sp_playlistcontainer_playlist_type(container, i)) {
         case SP_PLAYLIST_TYPE_PLAYLIST:
-            list[i] = playlist_tuple(env, sess, sp_playlistcontainer_playlist(container, i), 0);
+            pl = sp_playlistcontainer_playlist(container, i);
+            link = sp_link_create_from_playlist(pl);
+            if (link == NULL) {
+                // Not loaded...
+                list[i] = enif_make_atom(env, "not_loaded");
+            } else {
+                sp_link_as_string(link, link_str, MAX_LINK);
+                sp_link_release(link);
+                list[i] = playlist_tuple(env, sess, pl, 0);
+            }
             break;
         case SP_PLAYLIST_TYPE_START_FOLDER:
             sp_playlistcontainer_playlist_folder_name(container, i, foldername, MAX_LINK),
