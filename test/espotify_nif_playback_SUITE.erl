@@ -86,7 +86,7 @@ test_player_load(_) ->
                    end,
     Link = CurrentTrack#sp_track.link,
     ct:print("Current track: ~s (~s), ~p ms", [CurrentTrack#sp_track.link,
-                                               CurrentTrack#sp_track.track_name,
+                                               CurrentTrack#sp_track.name,
                                                CurrentTrack#sp_track.duration]),
     ok.
 

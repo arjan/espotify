@@ -248,6 +248,40 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
+static ERL_NIF_TERM espotify_browse_artist(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    char atom[MAX_ATOM];
+
+    if (!enif_get_atom(env, argv[1], atom, MAX_ATOM, ERL_NIF_LATIN1))
+        return enif_make_badarg(env);
+    
+    sp_artistbrowse_type type = 0;
+    if (!strcmp(atom, "full")) {
+        type = SP_ARTISTBROWSE_FULL;
+    } else if (!strcmp(atom, "no_tracks")) {
+        type = SP_ARTISTBROWSE_NO_TRACKS;
+    } else if (!strcmp(atom, "no_albums")) {
+        type = SP_ARTISTBROWSE_NO_ALBUMS;
+    } else {
+        return enif_make_badarg(env);
+    }
+
+    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    
+    if (spotifyctl_browse_artist(link, type, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
+        return STR_ERROR(env, error_msg);
+    }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+}
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -292,7 +326,8 @@ static ErlNifFunc nif_funcs[] =
     {"player_current_track", 0, espotify_player_current_track},
 
     {"track_info", 1, espotify_track_info},
-    {"browse_album", 1, espotify_browse_album}
+    {"browse_album", 1, espotify_browse_album},
+    {"browse_artist", 2, espotify_browse_artist}
     
 };
 

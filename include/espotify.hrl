@@ -37,7 +37,7 @@
      is_starred :: boolean(),
      artists :: [#sp_artist{}],
      album :: #sp_album{},
-     track_name :: string(),
+     name :: string(),
      duration :: non_neg_integer(),
      popularity :: non_neg_integer(),
      disc :: non_neg_integer(),
@@ -64,6 +64,12 @@
      albums :: [#sp_album{}],
      similar_artists :: [#sp_artist{}],
      biography :: string()
+   }).
+
+-record(
+   sp_image,
+   {
+     ref :: binary()
    }).
 
 -record(

@@ -1,6 +1,6 @@
 #include "erl_nif.h"
 
-#include <string.h> /* strncpy */
+#include <string.h> /* strncpy, memcpy */
 #include <stdarg.h> /* va_* */
 #include <stdio.h> /* fprintf */
 
@@ -100,6 +100,21 @@ void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
 }
 
 
+ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, const byte *image)
+{
+    ErlNifBinary bin;
+    enif_alloc_binary(20, &bin);
+    bin.size = 20;
+    memcpy(bin.data, image, 20);
+
+    return enif_make_tuple2(
+        env,
+        enif_make_atom(env, "sp_image"),
+        enif_make_binary(env, &bin)
+        );
+}
+
+
 ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
 {
     char link_str[MAX_LINK];
@@ -118,7 +133,8 @@ ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
         BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
         loaded ? enif_make_string(env, sp_artist_name(artist), ERL_NIF_LATIN1) : undefined,
-        undefined // FIXME portrait loaded ? enif_make_string(env, sp_artist_portrait(artist), ERL_NIF_LATIN1) : undefined,
+        // FIXME: this segfaults
+        undefined //loaded ? image_tuple(env, sess, sp_artist_portrait(artist, SP_IMAGE_SIZE_NORMAL)) : undefined
         );
 }
 
@@ -206,15 +222,26 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track, int 
 ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse *albumbrowse)
 {
     ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    int total, i;
+    ERL_NIF_TERM *list;
 
-    int total = sp_albumbrowse_num_tracks(albumbrowse);
-    int i;
-    ERL_NIF_TERM *as = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    // tracks 
+    total = sp_albumbrowse_num_tracks(albumbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
-        as[i] = track_tuple(env, sess, sp_albumbrowse_track(albumbrowse, i), 0);
+        list[i] = track_tuple(env, sess, sp_albumbrowse_track(albumbrowse, i), 0);
     }
-    ERL_NIF_TERM tracks = enif_make_list_from_array(env, as, total);
-    enif_free(as);
+    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // copyrights
+    total = sp_albumbrowse_num_copyrights(albumbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = enif_make_string(env, sp_albumbrowse_copyright(albumbrowse, i), ERL_NIF_LATIN1);
+    }
+    ERL_NIF_TERM copyrights = enif_make_list_from_array(env, list, total);
+    enif_free(list);
 
     return enif_make_tuple(
         env,
@@ -222,11 +249,77 @@ ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse 
         enif_make_atom(env, "sp_albumbrowse"),
         album_tuple(env, sess, sp_albumbrowse_album(albumbrowse), 0),
         artist_tuple(env, sess, sp_albumbrowse_artist(albumbrowse)),
-        undefined, // FIXME COPYRIGHTS
+        copyrights,
         tracks,
         enif_make_string(env, sp_albumbrowse_review(albumbrowse), ERL_NIF_LATIN1)
         );
 }
+
+ERL_NIF_TERM artistbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_artistbrowse *artistbrowse)
+{
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    int total, i;
+    ERL_NIF_TERM *list;
+
+    // list: tracks
+    total = sp_artistbrowse_num_tracks(artistbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = track_tuple(env, sess, sp_artistbrowse_track(artistbrowse, i), 0);
+    }
+    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: albums
+    total = sp_artistbrowse_num_albums(artistbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = album_tuple(env, sess, sp_artistbrowse_album(artistbrowse, i), 0);
+    }
+    ERL_NIF_TERM albums = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: tophit_tracks
+    total = sp_artistbrowse_num_tophit_tracks(artistbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = track_tuple(env, sess, sp_artistbrowse_tophit_track(artistbrowse, i), 0);
+    }
+    ERL_NIF_TERM tophit_tracks = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: simiar_artists
+    total = sp_artistbrowse_num_similar_artists(artistbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = artist_tuple(env, sess, sp_artistbrowse_similar_artist(artistbrowse, i));
+    }
+    ERL_NIF_TERM similar_artists = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: portraits
+    total = sp_artistbrowse_num_portraits(artistbrowse);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = image_tuple(env, sess, sp_artistbrowse_portrait(artistbrowse, i));
+    }
+    ERL_NIF_TERM portraits = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    return enif_make_tuple(
+        env,
+        8,
+        enif_make_atom(env, "sp_artistbrowse"),
+        artist_tuple(env, sess, sp_artistbrowse_artist(artistbrowse)),
+        portraits,
+        tracks,
+        tophit_tracks,
+        albums,
+        similar_artists,
+        enif_make_string(env, sp_artistbrowse_biography(artistbrowse), ERL_NIF_LATIN1)
+        );
+}
+
 
 void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
 {
@@ -284,6 +377,22 @@ void esp_player_browse_album_feedback(void *erl_pid, sp_session *session, void *
                                 env,
                                 return_reference((ERL_NIF_TERM *)refptr),
                                 albumbrowse_tuple(env, session, albumbrowse))
+                        )
+        );
+    enif_clear_env(env);
+}
+
+void esp_player_browse_artist_feedback(void *erl_pid, sp_session *session, void *refptr, sp_artistbrowse *artistbrowse)
+{
+    ErlNifEnv* env = temp_env();
+        
+    callback_result(erl_pid,
+                    "browse_artist",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                return_reference((ERL_NIF_TERM *)refptr),
+                                artistbrowse_tuple(env, session, artistbrowse))
                         )
         );
     enif_clear_env(env);

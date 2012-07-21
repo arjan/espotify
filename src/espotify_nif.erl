@@ -28,8 +28,8 @@
          player_current_track/0,
 
          track_info/1,
-
-         browse_album/1
+         browse_album/1,
+         browse_artist/2
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -121,7 +121,14 @@ track_info(_) ->
 
 %% @doc Browse information about an album, asynchronously.
 %%
-%% <pre>{'$spotify_callback', track_info, {ok, {reference(), #sp_albumbrowse{}}}} </pre>
+%% <pre>{'$spotify_callback', browse_album, {ok, {reference(), #sp_albumbrowse{}}}} </pre>
 -spec browse_album(string()) -> {ok, reference()}.
 browse_album(_) ->
+    ?NOT_LOADED.
+
+%% @doc Browse information about an artist, asynchronously.
+%%
+%% <pre>{'$spotify_callback', browse_artist, {ok, {reference(), #sp_artistbrowse{}}}} </pre>
+-spec browse_artist(string(), full | no_tracks | no_albums) -> {ok, reference()}.
+browse_artist(_, _) ->
     ?NOT_LOADED.

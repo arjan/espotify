@@ -570,6 +570,31 @@ int spotifyctl_browse_album(const char *link_str, void *reference, char **error_
     return CMD_RESULT_OK;
 }
 
+void spotifyctl_artistbrowse_complete(sp_artistbrowse *result, void *reference)
+{
+    esp_player_browse_artist_feedback(g_state.erl_pid, g_state.session, reference, result);
+    sp_artistbrowse_release(result);
+}
+
+int spotifyctl_browse_artist(const char *link_str, sp_artistbrowse_type type, void *reference, char **error_msg)
+{
+    sp_link *link;
+    
+    link = sp_link_create_from_string(link_str);
+    CHECK_VALID_LINK(link);
+
+    sp_artist *artist;
+    artist = sp_link_as_artist(link);
+    if (!artist) {
+        sp_link_release(link);
+        *error_msg = "Link is not an artist";
+        return CMD_RESULT_ERROR;
+    }
+    sp_artistbrowse *browse = sp_artistbrowse_create(g_state.session, artist, type, spotifyctl_artistbrowse_complete, reference);
+    sp_link_release(link);
+    
+    return CMD_RESULT_OK;
+}
 
 void load_queue_add(void *reference, sp_track *track)
 {
