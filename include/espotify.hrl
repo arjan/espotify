@@ -83,9 +83,24 @@
    }).
 
 -record(
-   sp_search,
+   sp_search_query,
    {
-     'query' :: string(),
+     q :: string(),
+     track_offset = 0 :: integer,
+     track_count = 0 :: integer,
+     album_offset = 0 :: integer,
+     album_count = 0 :: integer,
+     artist_offset = 0 :: integer,
+     artist_count = 0 :: integer,
+     playlist_offset = 0 :: integer,
+     playlist_count = 0 :: integer,
+     type = standard :: standard | suggest
+   }).
+
+-record(
+   sp_search_result,
+   {
+     q :: string(),
      did_you_mean :: string(),
      total_tracks :: non_neg_integer(),
      total_albums :: non_neg_integer(),
@@ -93,6 +108,6 @@
      total_playlists :: non_neg_integer(),
      tracks :: [#sp_track{}],
      albums :: [#sp_album{}],
-     playlists :: [#sp_playlist{}],
-     artists :: [#sp_artist{}]
+     artists :: [#sp_artist{}],
+     playlists :: [#sp_playlist{}]
    }).

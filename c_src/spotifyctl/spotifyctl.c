@@ -627,6 +627,24 @@ int spotifyctl_load_image(const char *link_str, void *reference, char **error_ms
     return CMD_RESULT_OK;
 }
 
+void spotifyctl_search_complete(sp_search *search, void *reference)
+{
+    esp_player_search_feedback(g_state.erl_pid, g_state.session, reference, search);
+    sp_search_release(search);
+}
+
+void spotifyctl_search(spotifyctl_search_query query, void *reference)
+{
+    sp_search_create(g_state.session, query.query, 
+                     query.track_offset, query.track_count, 
+                     query.album_offset, query.album_count, 
+                     query.artist_offset, query.artist_count, 
+                     query.playlist_offset, query.playlist_count, 
+                     query.search_type, 
+                     &spotifyctl_search_complete, reference);
+}
+
+
 void load_queue_add(void *reference, sp_track *track)
 {
 

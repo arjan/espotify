@@ -4,6 +4,7 @@
 #include <libspotify/api.h>
 
 #define MAX_LINK 1024
+#define MAX_QUERY 1024
 
 
 int spotifyctl_run(void *erl_pid, const char *cache_location, const char *settings_location,
@@ -19,6 +20,21 @@ int spotifyctl_track_info(const char *link, void *reference, char **error_msg);
 int spotifyctl_browse_album(const char *link, void *reference, char **error_msg);
 int spotifyctl_browse_artist(const char *link, sp_artistbrowse_type type, void *reference, char **error_msg);
 int spotifyctl_load_image(const char *link, void *reference, char **error_msg);
+
+typedef struct {
+    char query[MAX_QUERY];
+    unsigned int track_offset;
+    unsigned int track_count;
+    unsigned int album_offset;
+    unsigned int album_count;
+    unsigned int artist_offset;
+    unsigned int artist_count;
+    unsigned int playlist_offset;
+    unsigned int playlist_count;
+    sp_search_type search_type;
+} spotifyctl_search_query;
+
+void spotifyctl_search(spotifyctl_search_query query, void *reference);
 
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10

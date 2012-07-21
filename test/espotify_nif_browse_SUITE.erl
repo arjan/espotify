@@ -4,6 +4,7 @@
 -compile(export_all).
 
 -include_lib("espotify.hrl").
+-include_lib("espotify_tests_common.hrl").
 
 
 all() ->
@@ -14,31 +15,6 @@ all() ->
      test_browse_artist_full,
      test_image
     ].
-
-init_per_suite(_Config) ->
-    {ok, Username} = application:get_env(espotify, username),
-    {ok, Password} = application:get_env(espotify, password),
-    ok = espotify_nif:start(self(), "tmp", "tmp", Username, Password),
-    expect_callback(logged_in),
-    _Config.
-
-end_per_suite(_Config) ->
-    espotify_nif:stop(),
-    _Config.
-
-expect_callback(Callback) ->
-    receive
-        {'$spotify_callback', Callback, Result} ->
-            Result;
-        R ->
-            ct:print("???? ~p", [R]),
-            throw({error, bad_response})
-    after
-        20000 ->
-            ct:print("No response"),
-            throw({error, no_response})
-    end.
-
 
 test_track_info(_) ->
     ok = espotify_nif:set_pid(self()),

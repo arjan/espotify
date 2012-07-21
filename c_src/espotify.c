@@ -303,6 +303,62 @@ static ERL_NIF_TERM espotify_load_image(ErlNifEnv* env, int argc, const ERL_NIF_
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
+static ERL_NIF_TERM espotify_search(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    const ERL_NIF_TERM *ar;
+    int c;
+
+    if (!enif_get_tuple(env, argv[0], &c, &ar))
+        return enif_make_badarg(env);
+
+    if (c != 11)
+        return enif_make_badarg(env);
+
+    char atom[MAX_ATOM];
+    spotifyctl_search_query query;
+
+    if (!enif_get_atom(env, ar[0], atom, MAX_ATOM, ERL_NIF_LATIN1))
+        return enif_make_badarg(env);
+    if (strcmp(atom, "sp_search_query") != 0)
+        return enif_make_badarg(env);
+    if (enif_get_string(env, ar[1], query.query, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[2], &query.track_offset))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[3], &query.track_count))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[4], &query.album_offset))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[5], &query.album_count))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[6], &query.artist_offset))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[7], &query.artist_count))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[8], &query.playlist_offset))
+        return enif_make_badarg(env);
+    if (!enif_get_uint(env, ar[9], &query.playlist_count))
+        return enif_make_badarg(env);
+    if (!enif_get_atom(env, ar[10], atom, MAX_ATOM, ERL_NIF_LATIN1))
+        return enif_make_badarg(env);
+   
+    if (!strcmp(atom, "standard")) {
+        query.search_type = SP_SEARCH_STANDARD;
+    } else if (!strcmp(atom, "suggest")) {
+        query.search_type = SP_SEARCH_SUGGEST;
+    } else
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(priv->callback_env);
+
+    spotifyctl_search(query, (void *)reference);
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+}
+
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -347,7 +403,9 @@ static ErlNifFunc nif_funcs[] =
     {"track_info", 1, espotify_track_info},
     {"browse_album", 1, espotify_browse_album},
     {"browse_artist", 2, espotify_browse_artist},
-    {"load_image", 1, espotify_load_image}
+    {"load_image", 1, espotify_load_image},
+
+    {"search", 1, espotify_search}
     
 };
 
