@@ -50,55 +50,10 @@ void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term
     }
 }
 
-void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
-{
-    ErlNifEnv* env = temp_env();
 
-    callback_result(erl_pid,
-                    callback_name,
-                    ERROR_TERM(env, enif_make_string(env, msg_in, ERL_NIF_LATIN1))
-        );
-    enif_clear_env(env);
-}
-
-void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
-{
-    ErlNifEnv* env = temp_env();
-
-    callback_result(erl_pid,
-                    callback_name,
-                    enif_make_atom(env, atom_in)
-        );
-    enif_clear_env(env);
-}
-
-void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
-{
-    ErlNifEnv* env = temp_env();
-
-    // Make login feedback
-    char link_str[MAX_LINK];
-    sp_link *link = sp_link_create_from_user(user);
-    sp_link_as_string(link, link_str, MAX_LINK);
-    sp_link_release(link);
-    
-    callback_result(erl_pid,
-                    "logged_in",
-                    enif_make_tuple2(
-                        env,
-                        enif_make_atom(env, "ok"),
-                        enif_make_tuple4(
-                            env,
-                            enif_make_atom(env, "sp_user"),
-                            enif_make_string(env, link_str, ERL_NIF_LATIN1),
-                            enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
-                            enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
-                            )
-                        )
-        );
-    enif_clear_env(env);
-}
-
+/*
+ * ============ Start data representation =============
+ */
 
 ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, sp_image *image)
 {
@@ -403,17 +358,93 @@ ERL_NIF_TERM search_result_tuple(ErlNifEnv* env, sp_session *sess, sp_search *se
         );
 }
 
-void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
+ERL_NIF_TERM user_tuple(ErlNifEnv* env, sp_session *sess, sp_user *user)
 {
-    ErlNifEnv* env = temp_env();
-    callback_result(erl_pid,
-                    "player_load",
-                    OK_TERM(env, track_tuple(env, sess, track, 1))
+    // Make login feedback
+    char link_str[MAX_LINK];
+    sp_link *link = sp_link_create_from_user(user);
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
 
+    return enif_make_tuple(
+        env,
+        4,
+        enif_make_atom(env, "sp_user"),
+        enif_make_string(env, link_str, ERL_NIF_LATIN1),
+        enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
+        enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
         );
-    enif_clear_env(env);
 }
 
+ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playlist, int recurse)
+{
+    // Make login feedback
+    char link_str[MAX_LINK];
+    sp_link *link = sp_link_create_from_playlist(playlist);
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
+
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+
+    return enif_make_tuple(
+        env,
+        5,
+        enif_make_atom(env, "sp_playlist"),
+        enif_make_string(env, link_str, ERL_NIF_LATIN1),
+        enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
+        enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
+        );
+}
+
+ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playlistcontainer *container)
+{
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    char foldername[MAX_LINK];
+
+    int total, i;
+    ERL_NIF_TERM *list;
+
+    total = sp_playlistcontainer_num_playlists(container);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        switch (sp_playlistcontainer_playlist_type(container, i)) {
+        case SP_PLAYLIST_TYPE_PLAYLIST:
+            list[i] = playlist_tuple(env, sess, sp_playlistcontainer_playlist(container, i), 0);
+            break;
+        case SP_PLAYLIST_TYPE_START_FOLDER:
+            sp_playlistcontainer_playlist_folder_name(container, i, foldername, MAX_LINK),
+            list[i] = enif_make_tuple3(
+                env, 
+                enif_make_atom(env, "start_folder"),
+                enif_make_uint64(env, 
+                                 sp_playlistcontainer_playlist_folder_id(container, i)),
+                enif_make_string(env, 
+                                 foldername,
+                                 ERL_NIF_LATIN1)
+                );
+            break;
+        case SP_PLAYLIST_TYPE_END_FOLDER:
+            list[i] = enif_make_atom(env, "end_folder");
+            break;
+        case SP_PLAYLIST_TYPE_PLACEHOLDER:
+            list[i] = enif_make_atom(env, "placeholder");
+            break;
+        }
+    }
+    ERL_NIF_TERM contents = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    return enif_make_tuple(
+        env,
+        3,
+        enif_make_atom(env, "sp_playlistcontainer"),
+        user_tuple(env, sess, sp_playlistcontainer_owner(container)),
+        contents);
+}
+
+/*
+ * ============ Start feedback =============
+ */
 
 ERL_NIF_TERM *obtain_reference(ErlNifEnv *creation_env)
 {
@@ -431,6 +462,53 @@ ERL_NIF_TERM return_reference(ERL_NIF_TERM *refptr)
     return ref_term;
 }
 
+void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
+{
+    ErlNifEnv* env = temp_env();
+
+    callback_result(erl_pid,
+                    callback_name,
+                    ERROR_TERM(env, enif_make_string(env, msg_in, ERL_NIF_LATIN1))
+        );
+    enif_clear_env(env);
+}
+
+void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
+{
+    ErlNifEnv* env = temp_env();
+
+    callback_result(erl_pid,
+                    callback_name,
+                    enif_make_atom(env, atom_in)
+        );
+    enif_clear_env(env);
+}
+
+void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
+{
+    ErlNifEnv* env = temp_env();
+    
+    callback_result(erl_pid,
+                    "logged_in",
+                    enif_make_tuple2(
+                        env,
+                        enif_make_atom(env, "ok"),
+                        user_tuple(env, sess, user)
+                        )
+        );
+    enif_clear_env(env);
+}
+
+void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
+{
+    ErlNifEnv* env = temp_env();
+    callback_result(erl_pid,
+                    "player_load",
+                    OK_TERM(env, track_tuple(env, sess, track, 1))
+
+        );
+    enif_clear_env(env);
+}
 
 void esp_player_track_info_feedback(void *erl_pid, sp_session *sess, void *refptr, sp_track *track)
 {
@@ -514,18 +592,23 @@ void esp_player_search_feedback(void *erl_pid, sp_session *session, void *refptr
 }
 
 
-void esp_player_playlist_container_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container)
+void esp_player_load_playlistcontainer_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container)
 {
     ErlNifEnv* env = temp_env();
-
-    /* callback_result(erl_pid, */
-    /*                 "browse_album", */
-    /*                 OK_TERM(env, */
-    /*                         enif_make_tuple2( */
-    /*                             env, */
-    /*                             ref_term, */
-    /*                             albumbrowse_tuple(env, session, albumbrowse)) */
-    /*                     ) */
-    /*     ); */
+    ERL_NIF_TERM ref;
+    if (refptr) {
+        ref = return_reference((ERL_NIF_TERM *)refptr);
+    } else {
+        ref = enif_make_atom(env, "undefined");
+    }
+    callback_result(erl_pid,
+                    "load_playlistcontainer",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                ref,
+                                playlistcontainer_tuple(env, session, container))
+                        )
+        );
     enif_clear_env(env);
 }

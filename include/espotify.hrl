@@ -75,11 +75,26 @@
    }).
 
 -record(
+   sp_playlist_track,
+   {
+   }).
+
+-record(
    sp_playlist,
    {
      name :: string(),
-     uri :: string(),
-     image_uri :: string()
+     link :: string(),
+     image :: string(),
+     owner :: #sp_user{},
+     collaborative :: boolean(),
+     tracks :: [#sp_playlist_track{}]
+   }).
+
+-record(
+   sp_playlistcontainer,
+   {
+     owner :: #sp_user{},
+     contents :: [#sp_playlist{} | {start_folder, Id::integer(), Name::string()} | end_folder | placeholder]
    }).
 
 -record(

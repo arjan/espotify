@@ -104,7 +104,6 @@ test_image(_) ->
     {ok, Ref1} = espotify_nif:load_image("spotify:image:930de222ed6ad8bacf7eacbcb09214818a9e6b3b"),
     {ok, {Ref1, Image=#sp_image{}}} = expect_callback(load_image),
 
-    %ct:print("~p", [Image]),
     ok = file:write_file("/tmp/test.jpg", Image#sp_image.data),
     ct:print("Written test image to /tmp/test.jpg; inspect for yourself :)"),
     ok.

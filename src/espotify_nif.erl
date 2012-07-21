@@ -32,7 +32,9 @@
          browse_artist/2,
          load_image/1,
 
-         search/1
+         search/1,
+         
+         load_playlistcontainer/0
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -150,5 +152,13 @@ load_image(_) ->
 -spec search(#sp_search_result{}) -> {ok, reference()}.
 search(_) ->
     ?NOT_LOADED.
+
+%% @doc Load the playlist container of the current user.
+%%
+%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
+-spec load_playlistcontainer() -> {ok, reference()}.
+load_playlistcontainer() ->
+    ?NOT_LOADED.
+
 
 

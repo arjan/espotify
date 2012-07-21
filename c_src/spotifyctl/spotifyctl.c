@@ -58,8 +58,9 @@ typedef struct {
 
     // The global session handle
     sp_session *session;
+
     // The playlist container
-    sp_playlistcontainer *playlist_container;
+    sp_playlistcontainer *playlistcontainer;
 
     // The currently playing track
     sp_track *current_track;
@@ -194,42 +195,40 @@ static void playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl,
 
 
 /**
- * Callback from libspotifyctl, telling us the rootlist is fully synchronized
- * We just print an informational message
- *
- * @param  pc            The playlist container handle
- * @param  userdata      The opaque pointer
- */
-static void container_loaded(sp_playlistcontainer *pc, void *userdata)
-{
-    if (userdata == NULL) {
-        // Session playlist container
-
-        fprintf(stderr, "spotifyctl: Rootlist synchronized (%d playlists)\n",
-                sp_playlistcontainer_num_playlists(pc));
-
-        if (g_state.playlist_container) {
-            sp_playlistcontainer_release(g_state.playlist_container);
-        }
-
-        sp_playlistcontainer_add_ref(pc);
-        g_state.playlist_container = pc;
-
-//        esp_player_playlist_container_feedback(g_state.erl_pid, g_state.session, NULL, pc);
-    }
-}
-
-
-/**
  * The playlist container callbacks
  */
+static void user_container_loaded(sp_playlistcontainer *pc, void *userdata)
+{
+    g_state.playlistcontainer = pc;
+    esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, NULL, pc);
+}
 static sp_playlistcontainer_callbacks pc_callbacks = {
     .playlist_added = 0,//&playlist_added,
     .playlist_removed = 0,//&playlist_removed,
     .playlist_moved = 0,//&playlist_removed,
-    .container_loaded = &container_loaded,
+    .container_loaded = &user_container_loaded,
 };
 
+
+
+int spotifyctl_load_user_playlistcontainer(void *reference, char **error_msg)
+{
+    /* DBG("dd11"); */
+    /* sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session); */
+    /* DBG("dd"); */
+
+    /* if (!pc) { */
+    /*     *error_msg = "Not logged in"; */
+    /*     return CMD_RESULT_ERROR; */
+    /* } */
+
+    /* DBG("dd"); */
+    /* sp_playlistcontainer_add_ref(pc); */
+    /* sp_playlistcontainer_add_callbacks(pc, &pc_callbacks, reference); */
+    /* DBG("dd"); */
+
+    return CMD_RESULT_OK;
+}
 
 /* ---------------------------  SESSION CALLBACKS  ------------------------- */
 /**
@@ -244,22 +243,8 @@ static void logged_in(sp_session *sess, sp_error error)
         return;
     }
 
-    sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
-
-    if (g_state.first_session) {
-        sp_playlistcontainer_add_callbacks(
-            pc,
-            &pc_callbacks,
-            NULL);
-    }
-    
-    /* fprintf(stderr, "spotifyctl: Looking at %d playlists\n", sp_playlistcontainer_num_playlists(pc)); */
-
-    /* int i; */
-    /* for (i = 0; i < sp_playlistcontainer_num_playlists(pc); ++i) { */
-    /*     sp_playlist *pl = sp_playlistcontainer_playlist(pc, i); */
-    /*     sp_playlist_add_callbacks(pl, &pl_callbacks, NULL); */
-    /* } */
+    g_state.playlistcontainer = sp_session_playlistcontainer(g_state.session);
+    sp_playlistcontainer_add_callbacks(g_state.playlistcontainer, &pc_callbacks, NULL);
 
     esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
 }
@@ -825,9 +810,10 @@ int spotifyctl_run(void *erl_pid,
     }
 
     // Cleaning up
-    if (g_state.playlist_container) {
-        sp_playlistcontainer_release(g_state.playlist_container);
-    g_state.playlist_container = NULL;
+    if (g_state.playlistcontainer) {
+        sp_playlistcontainer_remove_callbacks(g_state.playlistcontainer, &pc_callbacks, NULL);
+        sp_playlistcontainer_release(g_state.playlistcontainer);
+        g_state.playlistcontainer = NULL;
     }
 
     // clear the state

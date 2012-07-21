@@ -15,6 +15,9 @@ expect_callback(Callback) ->
     receive
         {'$spotify_callback', Callback, Result} ->
             Result;
+        {'$spotify_callback', Cb2, _} ->
+            ct:print("ignored: ~p", [Cb2]),
+            expect_callback(Callback);
         R ->
             ct:print("???? ~p", [R]),
             throw({error, bad_response})

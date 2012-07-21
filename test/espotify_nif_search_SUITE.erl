@@ -8,8 +8,8 @@
 
 all() ->
     [
-     %% test_search_track,
-     %% test_search_album,
+     test_search_track,
+     test_search_album,
      test_search_artist
     ].
 

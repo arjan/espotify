@@ -36,6 +36,8 @@ typedef struct {
 
 void spotifyctl_search(spotifyctl_search_query query, void *reference);
 
+int spotifyctl_load_user_playlistcontainer(void *reference, char **error_msg);
+
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10
 #define CMD_PLAYER_PLAY     11
