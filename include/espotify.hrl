@@ -94,6 +94,7 @@
      collaborative :: boolean(),
      description :: string(),
      image :: string(),
+     num_tracks :: non_neg_integer(),
      tracks :: [#sp_playlist_track{}]
    }).
 

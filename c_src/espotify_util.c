@@ -366,9 +366,10 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
     ERL_NIF_TERM *list;
 
     ERL_NIF_TERM tracks;
-    if (loaded) {
+    if (loaded && recurse) {
         // list: tracks
         total = sp_playlist_num_tracks(playlist);
+        fprintf(stderr, "%s (%d)\n", sp_playlist_name(playlist), total);
         list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
         for (i=0; i<total; i++) {
             list[i] = playlist_track_tuple(env, sess, playlist, i, 1);
@@ -398,7 +399,6 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
 
 ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playlistcontainer *container)
 {
-    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
     char foldername[MAX_LINK];
     char link_str[MAX_LINK];
 
@@ -407,9 +407,12 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
     sp_playlist *pl;
     sp_link *link;
 
+    DBG("a");
+
     total = sp_playlistcontainer_num_playlists(container);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
+        DBG("a.");
         switch (sp_playlistcontainer_playlist_type(container, i)) {
         case SP_PLAYLIST_TYPE_PLAYLIST:
             pl = sp_playlistcontainer_playlist(container, i);
@@ -418,7 +421,6 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
                 // Not loaded...
                 list[i] = enif_make_atom(env, "not_loaded");
             } else {
-                sp_link_as_string(link, link_str, MAX_LINK);
                 sp_link_release(link);
                 list[i] = playlist_tuple(env, sess, pl, 0);
             }
@@ -457,7 +459,6 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
 
 ERL_NIF_TERM search_result_tuple(ErlNifEnv* env, sp_session *sess, sp_search *search)
 {
-    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
     int total, i;
     ERL_NIF_TERM *list;
 

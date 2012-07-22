@@ -25,6 +25,11 @@
 extern const char g_appkey[];
 extern const size_t g_appkey_size;
 
+typedef struct container_load_data {
+    void *reference;
+    sp_playlistcontainer *container
+} container_load_data;
+
 struct load_queue {
     load_queue_type type;
     sp_track *track;
@@ -163,12 +168,12 @@ static sp_playlist_callbacks pl_callbacks = {
 };
 
 
-static sp_playlist_callbacks pl_update_callbacks;
+static sp_playlist_callbacks load_playlist_callbacks;
 
 static void pl_state_change(sp_playlist *pl, void *userdata)
 {
     if (sp_playlist_is_loaded(pl)) {
-        sp_playlist_remove_callbacks(pl, &pl_update_callbacks, userdata);
+        sp_playlist_remove_callbacks(pl, &load_playlist_callbacks, userdata);
         int i;
         int all_loaded = 1;
         for (i=0; i<sp_playlist_num_tracks(pl); i++) {
@@ -185,7 +190,80 @@ static void pl_state_change(sp_playlist *pl, void *userdata)
     }
 }
 
-static sp_playlist_callbacks pl_update_callbacks = {
+
+static sp_playlist_callbacks load_pc_playlist_callbacks;
+
+static void pl_pc_state_change(sp_playlist *pl, void *userdata)
+{
+    if (sp_playlist_is_loaded(pl)) {
+        container_load_data *data = (container_load_data *)userdata;
+        sp_playlistcontainer *pc = data->container;
+
+        sp_playlist_remove_callbacks(pl, &load_pc_playlist_callbacks, userdata);
+        sp_playlist_release(pl);
+        int i;
+        int all_loaded = 1;
+        for (i=0; i<sp_playlistcontainer_num_playlists(pc); i++) {
+            if (sp_playlistcontainer_playlist_type(pc, i) == SP_PLAYLIST_TYPE_PLAYLIST) {
+                if (!sp_playlist_is_loaded(sp_playlistcontainer_playlist(pc, i))) {
+                    all_loaded = 0;
+                }
+            }        
+        }
+        if (all_loaded) {
+            DBG("L!!");
+            esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, data->reference, pc);
+            DBG("L!!2");
+            sp_playlistcontainer_release(pc);
+            DBG("L!!2");
+            free(data);
+            DBG("L!!2");
+        }
+    }
+}
+
+static sp_playlist_callbacks load_pc_playlist_callbacks = {
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	pl_pc_state_change,
+};
+
+
+/* --------------------  PLAYLIST CONTAINER CALLBACKS  --------------------- */
+
+static void container_loaded(sp_playlistcontainer *pc, void *userdata)
+{
+    int i;
+    int all_loaded = 1;
+    for (i=0; i<sp_playlistcontainer_num_playlists(pc); i++) {
+        if (sp_playlistcontainer_playlist_type(pc, i) == SP_PLAYLIST_TYPE_PLAYLIST) {
+            sp_playlist *pl = sp_playlistcontainer_playlist(pc, i);
+            if (!sp_playlist_is_loaded(pl)) {
+                all_loaded = 0;
+                sp_playlist_add_ref(pl);
+                sp_playlist_add_callbacks(pl, &load_pc_playlist_callbacks, userdata);
+            }
+        }        
+    }
+    if (all_loaded) {
+        container_load_data *data = (container_load_data *)userdata;
+        esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, data->reference, pc);
+        sp_playlistcontainer_release(pc);
+        free(data);
+    }
+}
+
+static sp_playlistcontainer_callbacks pc_callbacks = {
+    .playlist_added = 0,//&playlist_added,
+    .playlist_removed = 0,//&playlist_removed,
+    .playlist_moved = 0,//&playlist_removed,
+    .container_loaded = &container_loaded,
+};
+
+
+static sp_playlist_callbacks load_playlist_callbacks = {
 	NULL,
 	NULL,
 	NULL,
@@ -194,39 +272,26 @@ static sp_playlist_callbacks pl_update_callbacks = {
 };
 
 
-/* --------------------  PLAYLIST CONTAINER CALLBACKS  --------------------- */
-
-static void user_container_loaded(sp_playlistcontainer *pc, void *userdata)
-{
-    //g_state.playlistcontainer = pc;
-    //esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, NULL, pc);
-}
-static sp_playlistcontainer_callbacks pc_callbacks = {
-    .playlist_added = 0,//&playlist_added,
-    .playlist_removed = 0,//&playlist_removed,
-    .playlist_moved = 0,//&playlist_removed,
-    .container_loaded = &user_container_loaded,
-};
-
-
 
 int spotifyctl_load_user_playlistcontainer(void *reference, char **error_msg)
 {
-    /* DBG("dd11"); */
-    /* sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session); */
-    /* DBG("dd"); */
+    if (!g_state.playlistcontainer) {
+        *error_msg = "Not logged in";
+        return CMD_RESULT_ERROR;
+    }
 
-    /* if (!pc) { */
-    /*     *error_msg = "Not logged in"; */
-    /*     return CMD_RESULT_ERROR; */
-    /* } */
-
-    /* DBG("dd"); */
-    /* sp_playlistcontainer_add_ref(pc); */
-    /* sp_playlistcontainer_add_callbacks(pc, &pc_callbacks, reference); */
-    /* DBG("dd"); */
+    load_container(g_state.playlistcontainer, NULL);
 
     return CMD_RESULT_OK;
+}
+
+void load_container(sp_playlistcontainer *container, void *reference) {
+    container_load_data *load_data = (container_load_data *)malloc(sizeof(container_load_data));
+    load_data->container = container;
+    load_data->reference = reference;
+
+    sp_playlistcontainer_add_ref(container);
+    sp_playlistcontainer_add_callbacks(container, &pc_callbacks, load_data);
 }
 
 /* ---------------------------  SESSION CALLBACKS  ------------------------- */
@@ -243,7 +308,7 @@ static void logged_in(sp_session *sess, sp_error error)
     }
 
     g_state.playlistcontainer = sp_session_playlistcontainer(g_state.session);
-    sp_playlistcontainer_add_callbacks(g_state.playlistcontainer, &pc_callbacks, NULL);
+    load_container(g_state.playlistcontainer, NULL);
 
     esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
 }
@@ -630,7 +695,7 @@ int spotifyctl_load_playlist(const char *link_str, void *reference, char **error
     } 
 
     sp_playlist_add_ref(playlist);
-    sp_playlist_add_callbacks(playlist, &pl_update_callbacks, reference);
+    sp_playlist_add_callbacks(playlist, &load_playlist_callbacks, reference);
 
     if (sp_playlist_is_loaded(playlist)) {
         // call it myself
