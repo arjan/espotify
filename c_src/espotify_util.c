@@ -309,66 +309,6 @@ ERL_NIF_TERM artistbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_artistbrows
 }
 
 
-ERL_NIF_TERM search_result_tuple(ErlNifEnv* env, sp_session *sess, sp_search *search)
-{
-    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
-    int total, i;
-    ERL_NIF_TERM *list;
-
-    // list: tracks
-    total = sp_search_num_tracks(search);
-    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
-    for (i=0; i<total; i++) {
-        list[i] = track_tuple(env, sess, sp_search_track(search, i), 1);
-    }
-    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
-    enif_free(list);
-
-    // list: albums
-    total = sp_search_num_albums(search);
-    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
-    for (i=0; i<total; i++) {
-        list[i] = album_tuple(env, sess, sp_search_album(search, i), 1);
-    }
-    ERL_NIF_TERM albums = enif_make_list_from_array(env, list, total);
-    enif_free(list);
-
-    // list: artists
-    total = sp_search_num_artists(search);
-    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
-    for (i=0; i<total; i++) {
-        list[i] = artist_tuple(env, sess, sp_search_artist(search, i));
-    }
-    ERL_NIF_TERM artists = enif_make_list_from_array(env, list, total);
-    enif_free(list);
-
-    /* // list: playlists */
-    /* total = sp_search_num_playlists(search); */
-    /* list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM)); */
-    /* for (i=0; i<total; i++) { */
-    /*     list[i] = playlist_tuple(env, sess, sp_search_playlist(search, i)); */
-    /* } */
-    /* ERL_NIF_TERM playlists = enif_make_list_from_array(env, list, total); */
-    /* enif_free(list); */
-
-
-    return enif_make_tuple(
-        env,
-        11,
-        enif_make_atom(env, "sp_search_result"),
-        enif_make_string(env, sp_search_query(search), ERL_NIF_LATIN1), // q :: string(),
-        enif_make_string(env, sp_search_did_you_mean(search), ERL_NIF_LATIN1), // did_you_mean :: string(),
-        enif_make_uint(env, sp_search_total_tracks(search)), // total_tracks :: non_neg_integer(),
-        enif_make_uint(env, sp_search_total_albums(search)), // total_albums :: non_neg_integer(),
-        enif_make_uint(env, sp_search_total_artists(search)), // total_artists :: non_neg_integer(),
-        enif_make_uint(env, sp_search_total_playlists(search)), // total_playlists :: non_neg_integer(),
-        tracks, // tracks :: [#sp_track{}],
-        albums, // albums :: [#sp_album{}],
-        artists, // playlists :: [#sp_playlist{}],
-        undefined // artists :: [#sp_artist{}]
-        );
-}
-
 ERL_NIF_TERM user_tuple(ErlNifEnv* env, sp_session *sess, sp_user *user)
 {
     // Make login feedback
@@ -412,6 +352,7 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
     sp_link_release(link);
 
     ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    int loaded = sp_playlist_is_loaded(playlist);
 
     byte image_id[20];
     ERL_NIF_TERM image;
@@ -421,25 +362,30 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
         image = undefined;
     }
 
-
     int total, i;
     ERL_NIF_TERM *list;
 
-    // list: tracks
-    total = sp_playlist_num_tracks(playlist);
-    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
-    for (i=0; i<total; i++) {
-        list[i] = playlist_track_tuple(env, sess, playlist, i, 1);
+    ERL_NIF_TERM tracks;
+    if (loaded) {
+        // list: tracks
+        total = sp_playlist_num_tracks(playlist);
+        list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+        for (i=0; i<total; i++) {
+            list[i] = playlist_track_tuple(env, sess, playlist, i, 1);
+        }
+        tracks = enif_make_list_from_array(env, list, total);
+        enif_free(list);
+    } else {
+        tracks = undefined;
     }
-    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
-    enif_free(list);
 
     const char *description = sp_playlist_get_description(playlist);
 
     return enif_make_tuple(
         env,
-        8,
+        9,
         enif_make_atom(env, "sp_playlist"),
+        BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
         enif_make_string(env, sp_playlist_name(playlist), ERL_NIF_LATIN1),
         user_tuple(env, sess, sp_playlist_owner(playlist)),
@@ -506,6 +452,67 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
         enif_make_atom(env, "sp_playlistcontainer"),
         user_tuple(env, sess, sp_playlistcontainer_owner(container)),
         contents);
+}
+
+
+ERL_NIF_TERM search_result_tuple(ErlNifEnv* env, sp_session *sess, sp_search *search)
+{
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    int total, i;
+    ERL_NIF_TERM *list;
+
+    // list: tracks
+    total = sp_search_num_tracks(search);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = track_tuple(env, sess, sp_search_track(search, i), 1);
+    }
+    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: albums
+    total = sp_search_num_albums(search);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = album_tuple(env, sess, sp_search_album(search, i), 1);
+    }
+    ERL_NIF_TERM albums = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: artists
+    total = sp_search_num_artists(search);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = artist_tuple(env, sess, sp_search_artist(search, i));
+    }
+    ERL_NIF_TERM artists = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    // list: playlists
+    total = sp_search_num_playlists(search);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = playlist_tuple(env, sess, sp_search_playlist(search, i), 0);
+    }
+    ERL_NIF_TERM playlists = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+
+    return enif_make_tuple(
+        env,
+        11,
+        enif_make_atom(env, "sp_search_result"),
+        enif_make_string(env, sp_search_query(search), ERL_NIF_LATIN1), // q :: string(),
+        enif_make_string(env, sp_search_did_you_mean(search), ERL_NIF_LATIN1), // did_you_mean :: string(),
+        enif_make_uint(env, sp_search_total_tracks(search)), // total_tracks :: non_neg_integer(),
+        enif_make_uint(env, sp_search_total_albums(search)), // total_albums :: non_neg_integer(),
+        enif_make_uint(env, sp_search_total_artists(search)), // total_artists :: non_neg_integer(),
+        enif_make_uint(env, sp_search_total_playlists(search)), // total_playlists :: non_neg_integer(),
+        tracks, 
+        albums, 
+        artists,
+        playlists
+        );
 }
 
 /*

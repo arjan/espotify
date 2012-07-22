@@ -87,6 +87,7 @@
 -record(
    sp_playlist,
    {
+     is_loaded :: boolean(),
      link :: string(),
      name :: string(),
      owner :: #sp_user{},

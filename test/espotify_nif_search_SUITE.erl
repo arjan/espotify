@@ -10,7 +10,8 @@ all() ->
     [
      test_search_track,
      test_search_album,
-     test_search_artist
+     test_search_artist,
+     test_search_playlist
     ].
 
 
@@ -50,7 +51,7 @@ test_search_artist(_) ->
 
     {'EXIT', {badarg, _}} = (catch espotify_nif:search(foo)),
 
-    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Simon", artist_count=2}),
+    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Britney", artist_count=2}),
     {ok, {Ref1, R}} = expect_callback(search),
     ct:print("~p", [R]),
     
@@ -58,4 +59,18 @@ test_search_artist(_) ->
     #sp_artist{} = hd(R#sp_search_result.artists),
 
     true = (R#sp_search_result.total_artists > length(R#sp_search_result.artists)),
+    ok.
+
+
+test_search_playlist(_) ->
+    ok = espotify_nif:set_pid(self()),
+
+    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Britney", playlist_count=2}),
+    {ok, {Ref1, R}} = expect_callback(search),
+    ct:print("~p", [R]),
+    
+    2 = length(R#sp_search_result.playlists),
+    #sp_playlist{} = hd(R#sp_search_result.playlists),
+
+    true = (R#sp_search_result.total_playlists > length(R#sp_search_result.playlists)),
     ok.
