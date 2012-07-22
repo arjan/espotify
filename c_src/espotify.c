@@ -11,7 +11,7 @@
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
 #define ATOM_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, s)))
-#define STR_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), (s?enif_make_string(env, s, ERL_NIF_LATIN1):enif_make_atom(env, "unknown_error"))))
+#define STR_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), (s?make_binary(env, s):enif_make_atom(env, "unknown_error"))))
 
 #define ASSERT_STARTED(priv) if (!priv->session) {return ATOM_ERROR(env, "not_started");}
 
