@@ -89,10 +89,10 @@
    {
      link :: string(),
      name :: string(),
-     description :: string(),
-     image :: string(),
      owner :: #sp_user{},
      collaborative :: boolean(),
+     description :: string(),
+     image :: string(),
      tracks :: [#sp_playlist_track{}]
    }).
 

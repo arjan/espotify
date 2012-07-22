@@ -15,5 +15,6 @@ void esp_player_load_image_feedback(void *erl_pid, sp_session *session, void *re
 void esp_player_search_feedback(void *erl_pid, sp_session *session, void *reference, sp_search *search);
 
 void esp_player_load_playlistcontainer_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlistcontainer *container);
+void esp_player_load_playlist_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlist *playlist);
 
 #endif

@@ -37,6 +37,7 @@ typedef struct {
 void spotifyctl_search(spotifyctl_search_query query, void *reference);
 
 int spotifyctl_load_user_playlistcontainer(void *reference, char **error_msg);
+int spotifyctl_load_playlist(const char *link, void *reference, char **error_msg);
 
 #define CMD_STOP 1
 #define CMD_PLAYER_LOAD     10
@@ -57,7 +58,12 @@ int spotifyctl_do_cmd2(char cmd, void *arg1, void *arg2, char **error_msg);
 
 // internal
 
-void load_queue_add(void *reference, sp_track *track);
+typedef enum load_queue_type {
+    Q_LOAD_TRACK = 1,
+    Q_LOAD_PLAYLIST_TRACK = 2
+} load_queue_type;
+
+void load_queue_add(load_queue_type type, void *reference, sp_track *track, sp_playlist *playlist);
 void load_queue_check();
 
 

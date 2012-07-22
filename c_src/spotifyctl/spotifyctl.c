@@ -26,7 +26,9 @@ extern const char g_appkey[];
 extern const size_t g_appkey_size;
 
 struct load_queue {
+    load_queue_type type;
     sp_track *track;
+    sp_playlist *playlist;
     void *reference;
     struct load_queue *next;
 };
@@ -161,12 +163,43 @@ static sp_playlist_callbacks pl_callbacks = {
 };
 
 
+static sp_playlist_callbacks pl_update_callbacks;
+
+static void pl_state_change(sp_playlist *pl, void *userdata)
+{
+    if (sp_playlist_is_loaded(pl)) {
+        sp_playlist_remove_callbacks(pl, &pl_update_callbacks, userdata);
+        int i;
+        int all_loaded = 1;
+        for (i=0; i<sp_playlist_num_tracks(pl); i++) {
+            sp_track *track = sp_playlist_track(pl, i);
+            if (sp_track_is_loaded(track)) continue;
+            all_loaded = 0;
+            sp_track_add_ref(track);
+            load_queue_add(Q_LOAD_PLAYLIST_TRACK, userdata, track, pl);
+        }
+        if (all_loaded) {
+            esp_player_load_playlist_feedback(g_state.erl_pid, g_state.session, userdata, pl);
+            sp_playlist_release(pl);
+        }
+    }
+}
+
+static sp_playlist_callbacks pl_update_callbacks = {
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	pl_state_change,
+};
+
+
 /* --------------------  PLAYLIST CONTAINER CALLBACKS  --------------------- */
 
 static void user_container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
-    g_state.playlistcontainer = pc;
-    esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, NULL, pc);
+    //g_state.playlistcontainer = pc;
+    //esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, NULL, pc);
 }
 static sp_playlistcontainer_callbacks pc_callbacks = {
     .playlist_added = 0,//&playlist_added,
@@ -491,7 +524,7 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
     sp_track_add_ref(track);
     sp_link_release(link);
 
-    load_queue_add(reference, track);
+    load_queue_add(Q_LOAD_TRACK, reference, track, NULL);
     return CMD_RESULT_OK;
 }
 
@@ -596,11 +629,37 @@ void spotifyctl_search(spotifyctl_search_query query, void *reference)
 }
 
 
-void load_queue_add(void *reference, sp_track *track)
+int spotifyctl_load_playlist(const char *link_str, void *reference, char **error_msg)
+{
+    sp_link *link;
+
+    link = sp_link_create_from_string(link_str);
+    CHECK_VALID_LINK(link);
+
+    sp_playlist *playlist;
+    playlist = sp_playlist_create(g_state.session, link);
+    if (!playlist) {
+        sp_link_release(link);
+        *error_msg = "Link is not a playlist";
+        return CMD_RESULT_ERROR;
+    } 
+
+    sp_playlist_add_ref(playlist);
+    //sp_playlist_set_in_ram(g_state.session, playlist, 1);
+    sp_playlist_add_callbacks(playlist, &pl_update_callbacks, reference);
+    sp_link_release(link);
+
+    return CMD_RESULT_OK;
+}
+
+
+void load_queue_add(load_queue_type type, void *reference, sp_track *track, sp_playlist *playlist)
 {
 
     spotifyctl_load_queue *item = (spotifyctl_load_queue *)malloc(sizeof(spotifyctl_load_queue));
+    item->type = type;
     item->track = track;
+    item->playlist = playlist;
     item->reference = reference;
     item->next = NULL;
     
@@ -617,6 +676,7 @@ void load_queue_check()
 {
     spotifyctl_load_queue *q = g_state.load_queue_head;
     spotifyctl_load_queue *prevq = 0;
+    int i, ok;
 
     while (q) {
         if (sp_track_is_loaded(q->track)) {
@@ -627,11 +687,30 @@ void load_queue_check()
                 g_state.load_queue_head = q->next;
             }
 
-            // do callback
-            esp_player_track_info_feedback(g_state.erl_pid, g_state.session, q->reference, q->track);
+            switch (q->type)
+            { 
+            case Q_LOAD_TRACK:
+                // do callback
+                esp_player_track_info_feedback(g_state.erl_pid, g_state.session, q->reference, q->track);
 
-            // clean up
-            sp_track_release(q->track);
+                // clean up
+                sp_track_release(q->track);
+                break;
+            case Q_LOAD_PLAYLIST_TRACK:
+                // check if all tracks in the playlist are loaded
+                ok = 1;
+                DBG("...");
+                for (i=0; i<sp_playlist_num_tracks(q->playlist); i++) {
+                    if (!sp_track_is_loaded(sp_playlist_track(q->playlist, i))) { 
+                        ok = 0; break;
+                    }
+                }
+                if (ok) {
+                    DBG("YYY");
+                    esp_player_load_playlist_feedback(g_state.erl_pid, g_state.session, q->reference, q->playlist);
+                    sp_playlist_release(q->playlist);
+                }
+            }
             free(q);
         } else
             prevq = q;

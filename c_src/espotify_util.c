@@ -78,6 +78,17 @@ ERL_NIF_TERM image_tuple(ErlNifEnv* env, sp_session *sess, sp_image *image)
         );
 }
 
+ERL_NIF_TERM image_link_from_image_id(ErlNifEnv* env, sp_session *sess, const byte image_id[20])
+{
+    sp_image *image = sp_image_create(sess, image_id);
+    sp_link *link = sp_link_create_from_image(image);
+    sp_image_release(image);
+    char link_str[MAX_LINK];
+    sp_link_as_string(link, link_str, MAX_LINK);
+    sp_link_release(link);
+    return enif_make_string(env, link_str, ERL_NIF_LATIN1);
+}
+
 ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
 {
     char link_str[MAX_LINK];
@@ -386,13 +397,40 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
 
     ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
 
+    byte image_id[20];
+    ERL_NIF_TERM image;
+    if (sp_playlist_get_image(playlist, image_id)) {
+        image = image_link_from_image_id(env, sess, image_id);
+    } else {
+        image = undefined;
+    }
+
+
+    int total, i;
+    ERL_NIF_TERM *list;
+
+    // list: tracks
+    total = sp_playlist_num_tracks(playlist);
+    list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
+    for (i=0; i<total; i++) {
+        list[i] = track_tuple(env, sess, sp_playlist_track(playlist, i), 1);
+    }
+    ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
+    enif_free(list);
+
+    const char *description = sp_playlist_get_description(playlist);
+
     return enif_make_tuple(
         env,
-        5,
+        8,
         enif_make_atom(env, "sp_playlist"),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
-        undefined,
-        undefined
+        enif_make_string(env, sp_playlist_name(playlist), ERL_NIF_LATIN1),
+        user_tuple(env, sess, sp_playlist_owner(playlist)),
+        BOOL_TERM(env, sp_playlist_is_collaborative(playlist)),
+        description ? enif_make_string(env, description, ERL_NIF_LATIN1) : undefined,
+        image,
+        tracks
         );
 }
 
@@ -620,6 +658,22 @@ void esp_player_load_playlistcontainer_feedback(void *erl_pid, sp_session *sessi
                                 env,
                                 ref,
                                 playlistcontainer_tuple(env, session, container))
+                        )
+        );
+    enif_clear_env(env);
+}
+
+void esp_player_load_playlist_feedback(void *erl_pid, sp_session *session, void *refptr, sp_playlist *playlist)
+{
+    ErlNifEnv* env = temp_env();
+        
+    callback_result(erl_pid,
+                    "load_playlist",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                return_reference((ERL_NIF_TERM *)refptr),
+                                playlist_tuple(env, session, playlist, 1))
                         )
         );
     enif_clear_env(env);

@@ -380,6 +380,26 @@ static ERL_NIF_TERM espotify_load_playlistcontainer(ErlNifEnv* env, int argc, co
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
 }
 
+static ERL_NIF_TERM espotify_load_playlist(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    char link[MAX_LINK];
+    char *error_msg;
+
+    if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
+    *reference = enif_make_ref(priv->callback_env);
+
+    if (spotifyctl_load_playlist(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
+        return STR_ERROR(env, error_msg);
+    }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+}
+
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
@@ -428,7 +448,8 @@ static ErlNifFunc nif_funcs[] =
 
     {"search", 1, espotify_search},
 
-    {"load_playlistcontainer", 0, espotify_load_playlistcontainer}
+    {"load_playlistcontainer", 0, espotify_load_playlistcontainer},
+    {"load_playlist", 1, espotify_load_playlist}
     
 };
 

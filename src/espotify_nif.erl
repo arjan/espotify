@@ -34,7 +34,8 @@
 
          search/1,
          
-         load_playlistcontainer/0
+         load_playlistcontainer/0,
+         load_playlist/1
         ]).
 
 -define(NOT_LOADED, throw({error, "NIF library not loaded"})).
@@ -158,6 +159,14 @@ search(_) ->
 %% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
 -spec load_playlistcontainer() -> {ok, reference()}.
 load_playlistcontainer() ->
+    ?NOT_LOADED.
+
+
+%% @doc Load given playlist.
+%%
+%% <pre>{'$spotify_callback', load_playlist, {ok, {reference(), #sp_playlist{}}}} </pre>
+-spec load_playlist(string()) -> {ok, reference()}.
+load_playlist(_) ->
     ?NOT_LOADED.
 
 
