@@ -364,20 +364,34 @@ static ERL_NIF_TERM espotify_load_playlistcontainer(ErlNifEnv* env, int argc, co
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    DBG("dd11");
-
     ERL_NIF_TERM *reference = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
     *reference = enif_make_ref(priv->callback_env);
 
-    DBG("dd11");
-
-    /* char *error_msg; */
-    /* if (spotifyctl_load_session_playlistcontainer((void *)reference, &error_msg) == CMD_RESULT_ERROR) { */
-    /*     return STR_ERROR(env, error_msg); */
-    /* } */
-    /* DBG("dd11"); */
-
+    char *error_msg;
+    if (spotifyctl_load_playlistcontainer((void *)reference, &error_msg) == CMD_RESULT_ERROR) {
+        return STR_ERROR(env, error_msg);
+    }
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), *reference);
+}
+
+static ERL_NIF_TERM espotify_load_user_playlistcontainer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    espotify_private *priv = (espotify_private *)enif_priv_data(env);
+    ASSERT_STARTED(priv);
+
+    char name[MAX_LINK];
+    char *error_msg;
+
+    if (enif_get_string(env, argv[0], name, MAX_LINK, ERL_NIF_LATIN1) < 1)
+        return enif_make_badarg(env);
+
+    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM myref = enif_make_copy(env, *reference);
+    
+    if (spotifyctl_load_user_playlistcontainer(name, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
+        return STR_ERROR(env, error_msg);
+    }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
 }
 
 static ERL_NIF_TERM espotify_load_playlist(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -449,6 +463,7 @@ static ErlNifFunc nif_funcs[] =
     {"search", 1, espotify_search},
 
     {"load_playlistcontainer", 0, espotify_load_playlistcontainer},
+    {"load_user_playlistcontainer", 1, espotify_load_user_playlistcontainer},
     {"load_playlist", 1, espotify_load_playlist}
     
 };

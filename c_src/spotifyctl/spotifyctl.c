@@ -211,13 +211,9 @@ static void pl_pc_state_change(sp_playlist *pl, void *userdata)
             }        
         }
         if (all_loaded) {
-            DBG("L!!");
             esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, data->reference, pc);
-            DBG("L!!2");
             sp_playlistcontainer_release(pc);
-            DBG("L!!2");
             free(data);
-            DBG("L!!2");
         }
     }
 }
@@ -273,13 +269,27 @@ static sp_playlist_callbacks load_playlist_callbacks = {
 
 
 
-int spotifyctl_load_user_playlistcontainer(void *reference, char **error_msg)
+int spotifyctl_load_user_playlistcontainer(const char *user, void *reference, char **error_msg)
+{
+    sp_playlistcontainer *container = sp_session_publishedcontainer_for_user_create (g_state.session, user);
+    if (!container) {
+        *error_msg = "Not logged in";
+        return CMD_RESULT_ERROR;
+    }
+
+    load_container(container, reference);
+
+    return CMD_RESULT_OK;
+}
+
+int spotifyctl_load_playlistcontainer(void *reference, char **error_msg)
 {
     if (!g_state.playlistcontainer) {
         *error_msg = "Not logged in";
         return CMD_RESULT_ERROR;
     }
 
+    sp_playlistcontainer_add_ref(g_state.playlistcontainer);
     load_container(g_state.playlistcontainer, NULL);
 
     return CMD_RESULT_OK;

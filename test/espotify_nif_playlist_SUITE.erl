@@ -8,17 +8,26 @@
 
 all() ->
     [
-     test_load_playlistcontainer
-%     test_load_playlist
+     test_load_playlistcontainer,
+     test_load_user_playlistcontainer,
+     test_load_playlist
     ].
 
 
 test_load_playlistcontainer(_) ->
     ok = espotify_nif:set_pid(self()),
 
-    %%{ok, Ref1} = espotify_nif:load_playlistcontainer(),
     %% Wait for my own playlist container
-    {ok, {undefined, R}} = expect_callback(load_playlistcontainer),
+    {ok, {undefined, R=#sp_playlistcontainer{}}} = expect_callback(load_playlistcontainer),
+    ct:print("~p", [R]),
+    ok.
+
+
+test_load_user_playlistcontainer(_) ->
+    ok = espotify_nif:set_pid(self()),
+    {ok, Ref1} = espotify_nif:load_user_playlistcontainer("Arjan Scherpenisse"),
+    %% Wait for user's playlist container
+    {ok, {Ref1, R}} = expect_callback(load_playlistcontainer),
     ct:print("~p", [R]),
     ok.
 

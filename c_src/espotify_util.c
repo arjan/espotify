@@ -365,26 +365,28 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
     int total, i;
     ERL_NIF_TERM *list;
 
-    ERL_NIF_TERM tracks;
+    ERL_NIF_TERM num_tracks = undefined;
+    if (loaded) {
+        num_tracks = enif_make_uint(env, sp_playlist_num_tracks(playlist));
+    }
+
+    ERL_NIF_TERM tracks = undefined;
     if (loaded && recurse) {
         // list: tracks
         total = sp_playlist_num_tracks(playlist);
-        fprintf(stderr, "%s (%d)\n", sp_playlist_name(playlist), total);
         list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
         for (i=0; i<total; i++) {
             list[i] = playlist_track_tuple(env, sess, playlist, i, 1);
         }
         tracks = enif_make_list_from_array(env, list, total);
         enif_free(list);
-    } else {
-        tracks = undefined;
     }
 
     const char *description = sp_playlist_get_description(playlist);
 
     return enif_make_tuple(
         env,
-        9,
+        10,
         enif_make_atom(env, "sp_playlist"),
         BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
@@ -393,6 +395,7 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
         BOOL_TERM(env, sp_playlist_is_collaborative(playlist)),
         description ? enif_make_string(env, description, ERL_NIF_LATIN1) : undefined,
         image,
+        num_tracks,
         tracks
         );
 }
@@ -400,19 +403,15 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
 ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playlistcontainer *container)
 {
     char foldername[MAX_LINK];
-    char link_str[MAX_LINK];
 
     int total, i;
     ERL_NIF_TERM *list;
     sp_playlist *pl;
     sp_link *link;
 
-    DBG("a");
-
     total = sp_playlistcontainer_num_playlists(container);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
-        DBG("a.");
         switch (sp_playlistcontainer_playlist_type(container, i)) {
         case SP_PLAYLIST_TYPE_PLAYLIST:
             pl = sp_playlistcontainer_playlist(container, i);

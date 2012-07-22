@@ -35,6 +35,7 @@
          search/1,
          
          load_playlistcontainer/0,
+         load_user_playlistcontainer/1,
          load_playlist/1
         ]).
 
@@ -159,6 +160,14 @@ search(_) ->
 %% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
 -spec load_playlistcontainer() -> {ok, reference()}.
 load_playlistcontainer() ->
+    ?NOT_LOADED.
+
+
+%% @doc Load the playlist container of a user (by canonical name)
+%%
+%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
+-spec load_user_playlistcontainer(string()) -> {ok, reference()}.
+load_user_playlistcontainer(_) ->
     ?NOT_LOADED.
 
 
