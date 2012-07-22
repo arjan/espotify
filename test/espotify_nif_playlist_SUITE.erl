@@ -26,8 +26,12 @@ test_load_playlistcontainer(_) ->
 test_load_playlist(_) ->
     ok = espotify_nif:set_pid(self()),
 
+    %% Load it; waits for all tracks to load.
     {ok, Ref1} = espotify_nif:load_playlist("spotify:user:acscherp:playlist:22iC2x9eVbU7HquIBeRECr"),
-    %% Wait for my own playlist container
     {ok, {Ref1, R}} = expect_callback(load_playlist),
     ct:print("~p", [R]),
+
+    %% Load it again; should be fast now its in RAM
+    {ok, Ref2} = espotify_nif:load_playlist("spotify:user:acscherp:playlist:22iC2x9eVbU7HquIBeRECr"),
+    {ok, {Ref2, R}} = expect_callback(load_playlist),
     ok.

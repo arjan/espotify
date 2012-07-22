@@ -52,8 +52,6 @@ int spotifyctl_load_playlist(const char *link, void *reference, char **error_msg
 
 int spotifyctl_do_cmd0(char cmd, char **error_msg);
 int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg);
-int spotifyctl_do_cmd2(char cmd, void *arg1, void *arg2, char **error_msg);
-
 
 
 // internal

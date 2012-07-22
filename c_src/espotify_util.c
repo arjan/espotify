@@ -387,6 +387,22 @@ ERL_NIF_TERM user_tuple(ErlNifEnv* env, sp_session *sess, sp_user *user)
         );
 }
 
+ERL_NIF_TERM playlist_track_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playlist, int track, int recurse)
+{
+    ERL_NIF_TERM undefined = enif_make_atom(env, "undefined");
+    const char *message = sp_playlist_track_message(playlist, track);
+    return enif_make_tuple(
+        env,
+        6,
+        enif_make_atom(env, "sp_playlist_track"),
+        track_tuple(env, sess, sp_playlist_track(playlist, track), 1),
+        enif_make_uint(env, sp_playlist_track_create_time(playlist, track)),
+        user_tuple(env, sess, sp_playlist_track_creator(playlist, track)),
+        BOOL_TERM(env, sp_playlist_track_seen(playlist, track)),
+        message ? enif_make_string(env, message, ERL_NIF_LATIN1) : undefined
+        );
+}
+
 ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playlist, int recurse)
 {
     // Make login feedback
@@ -413,7 +429,7 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
     total = sp_playlist_num_tracks(playlist);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
-        list[i] = track_tuple(env, sess, sp_playlist_track(playlist, i), 1);
+        list[i] = playlist_track_tuple(env, sess, playlist, i, 1);
     }
     ERL_NIF_TERM tracks = enif_make_list_from_array(env, list, total);
     enif_free(list);

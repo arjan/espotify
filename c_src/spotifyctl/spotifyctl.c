@@ -422,21 +422,6 @@ int spotifyctl_do_cmd1(char cmd, void *arg1, char **error_msg)
     return wait_for_cmd_result();
 }
 
-int spotifyctl_do_cmd2(char cmd, void *arg1, void *arg2, char **error_msg)
-{
-    pthread_mutex_lock(&g_state.notify_mutex);
-    g_state.cmd = cmd;
-    g_state.cmd_error_msg = error_msg;
-    g_state.cmd_arg1 = arg1;
-    g_state.cmd_arg2 = arg2;
-    pthread_cond_signal(&g_state.notify_cond);
-    pthread_mutex_unlock(&g_state.notify_mutex);
-    return wait_for_cmd_result();
-}
-
-//int spotifyctl_do_cmd1(spotifyctl_cmd cmd, void *arg1, char **error_msg);
-//int spotifyctl_do_cmd2(spotifyctl_cmd cmd, void *arg1, void *arg2, char **error_msg);
-
 void handle_cmd_player_load()
 {
     sp_link *link;
@@ -645,8 +630,13 @@ int spotifyctl_load_playlist(const char *link_str, void *reference, char **error
     } 
 
     sp_playlist_add_ref(playlist);
-    //sp_playlist_set_in_ram(g_state.session, playlist, 1);
     sp_playlist_add_callbacks(playlist, &pl_update_callbacks, reference);
+
+    if (sp_playlist_is_loaded(playlist)) {
+        // call it myself
+        pl_state_change(playlist, reference);
+    }
+
     sp_link_release(link);
 
     return CMD_RESULT_OK;
@@ -692,25 +682,22 @@ void load_queue_check()
             case Q_LOAD_TRACK:
                 // do callback
                 esp_player_track_info_feedback(g_state.erl_pid, g_state.session, q->reference, q->track);
-
-                // clean up
-                sp_track_release(q->track);
                 break;
             case Q_LOAD_PLAYLIST_TRACK:
                 // check if all tracks in the playlist are loaded
                 ok = 1;
-                DBG("...");
                 for (i=0; i<sp_playlist_num_tracks(q->playlist); i++) {
                     if (!sp_track_is_loaded(sp_playlist_track(q->playlist, i))) { 
                         ok = 0; break;
                     }
                 }
                 if (ok) {
-                    DBG("YYY");
                     esp_player_load_playlist_feedback(g_state.erl_pid, g_state.session, q->reference, q->playlist);
                     sp_playlist_release(q->playlist);
                 }
             }
+            // clean up
+            sp_track_release(q->track);
             free(q);
         } else
             prevq = q;
