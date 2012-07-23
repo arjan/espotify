@@ -44,8 +44,6 @@ typedef struct {
     
     /* The output queue for audo data */
     audio_fifo_t audiofifo;
-    /* flag for audio initialization */
-    int audio_initialized;
     
     // Synchronization mutex for the main thread
     pthread_mutex_t notify_mutex;
@@ -581,10 +579,14 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
         return CMD_RESULT_ERROR;
     } 
 
-    sp_track_add_ref(track);
+    if (!sp_track_is_loaded(track)) {
+        sp_track_add_ref(track);
+        load_queue_add(Q_LOAD_TRACK, reference, track, NULL);
+    } else {
+        esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
+    }
     sp_link_release(link);
 
-    load_queue_add(Q_LOAD_TRACK, reference, track, NULL);
     return CMD_RESULT_OK;
 }
 
@@ -608,8 +610,13 @@ int spotifyctl_browse_album(const char *link_str, void *reference, char **error_
         *error_msg = "Link is not an album";
         return CMD_RESULT_ERROR;
     }
-    sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
+
+    sp_albumbrowse *br = sp_albumbrowse_create(g_state.session, album, spotifyctl_albumbrowse_complete, reference);
     sp_link_release(link);
+
+    if (sp_albumbrowse_is_loaded(br)) {
+        spotifyctl_albumbrowse_complete(br, reference);
+    }
     
     return CMD_RESULT_OK;
 }
@@ -800,14 +807,10 @@ int spotifyctl_run(void *erl_pid,
 
     spotifyctl_set_pid(erl_pid);
     
-    // reinit
-    if (!g_state.audio_initialized) {
-        audio_init(&g_state.audiofifo);
-        g_state.audio_initialized = 1;
-    }
-
     if (!g_state.session)
     {
+        audio_init(&g_state.audiofifo);
+
         /* Create session */
         spconfig.application_key_size = g_appkey_size;
 
@@ -836,7 +839,7 @@ int spotifyctl_run(void *erl_pid,
 
     g_state.running = 1; // let's go
 
-    //DBG("Enter main loop");
+    DBG("Enter main loop");
     
     pthread_mutex_lock(&g_state.notify_mutex);
     while (g_state.running) {
@@ -942,9 +945,11 @@ int spotifyctl_run(void *erl_pid,
         free(q);
         q = next;
     }
-
+    g_state.load_queue_head = NULL;
+    g_state.load_queue_tail = NULL;
+    
     // cant release the session here since creating another one fails.
 
     return 0;
 }
-            
+

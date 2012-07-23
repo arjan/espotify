@@ -1,6 +1,7 @@
 [{espotify,
   [
    {username, ""},
-   {password, ""}
+   {password, ""},
+   {tmp_dir, "tmp"}  % = relative to ct dir
   ]
  }].

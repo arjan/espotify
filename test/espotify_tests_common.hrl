@@ -1,16 +1,28 @@
 %% Shared functions
 
-init_per_suite(_Config) ->
+init_per_testcase(_, _Config) ->
     {ok, Username} = application:get_env(espotify, username),
     {ok, Password} = application:get_env(espotify, password),
-    ok = espotify_nif:start(self(), "tmp", "tmp", Username, Password),
+    {ok, TmpDir} = application:get_env(espotify, tmp_dir),
+    ok = espotify_nif:start(self(), TmpDir, TmpDir, Username, Password),
     expect_callback(logged_in),
     _Config.
 
-end_per_suite(_Config) ->
+end_per_testcase(_, _Config) ->
+    flush_messages(),
     espotify_nif:stop(),
     _Config.
 
+flush_messages() ->
+    receive
+        _X ->
+            ct:print("... flushed: ~p", [_X]),
+            flush_messages()
+    after
+        0 ->
+            true
+    end.
+            
 expect_callback(Callback) ->
     receive
         {'$spotify_callback', Callback, Result} ->

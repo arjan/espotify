@@ -11,28 +11,23 @@
 
 #define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
 
+static ErlNifEnv *_temp_env = NULL;
 
 ErlNifEnv *temp_env()
 {
-    static ErlNifEnv *env = 0;
-    if (!env)
-        env = enif_alloc_env();
-    return env;
+    if (_temp_env == NULL)
+        _temp_env = enif_alloc_env();
+    return _temp_env;
 }
 
-
-void esp_debug(void *erl_pid)
+void clean_temp_env()
 {
-    ErlNifEnv* env = temp_env();
-    fprintf(stderr, "debug send to: %p\n", erl_pid);
-    if (!enif_send(NULL, 
-                   (ErlNifPid *)erl_pid, 
-                   env,
-                   enif_make_atom(env, "debug")))
-    {
-        fprintf(stderr, "error sending debug.... :-/\n");
+    if (_temp_env) {
+        enif_free_env(_temp_env);
+        _temp_env = NULL;
     }
 }
+
 
 void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
 {
@@ -529,8 +524,7 @@ ERL_NIF_TERM *obtain_reference(ErlNifEnv *creation_env)
 ERL_NIF_TERM return_reference(ERL_NIF_TERM *refptr)
 {
     // Copy the reference to the enif_send temp environment
-    ERL_NIF_TERM *ref = (ERL_NIF_TERM *)refptr;
-    ERL_NIF_TERM ref_term = enif_make_copy(temp_env(), *ref);
+    ERL_NIF_TERM ref_term = enif_make_copy(temp_env(), *refptr);
     enif_free(refptr);
     return ref_term;
 }
@@ -697,6 +691,24 @@ void esp_player_load_playlist_feedback(void *erl_pid, sp_session *session, void 
                                 env,
                                 return_reference((ERL_NIF_TERM *)refptr),
                                 playlist_tuple(env, session, playlist, 1))
+                        )
+        );
+    enif_clear_env(env);
+}
+
+
+void esp_debug(void *erl_pid, void *refptr)
+{
+    ErlNifEnv* env = temp_env();
+        
+    callback_result(erl_pid,
+                    "debug",
+                    OK_TERM(env,
+                            enif_make_tuple2(
+                                env,
+                                return_reference((ERL_NIF_TERM *)refptr),
+                                enif_make_atom(env, "ok")
+                                )
                         )
         );
     enif_clear_env(env);

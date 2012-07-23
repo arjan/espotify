@@ -6,12 +6,25 @@
 -include_lib("espotify.hrl").
 -include_lib("espotify_tests_common.hrl").
 
+
 all() ->
     [
-     test_load_playlistcontainer,
-     test_load_user_playlistcontainer,
-     test_load_playlist
+     test_debug,
+     test_debug
+     %% test_load_playlistcontainer,
+     %% test_load_user_playlistcontainer,
+     %% test_load_playlist
     ].
+
+
+test_debug(_) ->
+    ok = espotify_nif:set_pid(self()),
+    [begin
+         espotify_nif:debug(),
+         expect_callback(debug)
+     end || _ <- lists:seq(0,10000000)],
+    ct:print("~p", [ok]).
+
 
 
 test_load_playlistcontainer(_) ->

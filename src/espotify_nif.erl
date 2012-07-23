@@ -33,6 +33,7 @@
          load_image/1,
 
          search/1,
+         debug/0,
          
          load_playlistcontainer/0,
          load_user_playlistcontainer/1,
@@ -179,4 +180,5 @@ load_playlist(_) ->
     ?NOT_LOADED.
 
 
-
+debug() ->
+    ?NOT_LOADED.
