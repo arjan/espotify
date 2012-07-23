@@ -9,11 +9,9 @@
 
 all() ->
     [
-     test_debug,
-     test_debug
-     %% test_load_playlistcontainer,
-     %% test_load_user_playlistcontainer,
-     %% test_load_playlist
+%     test_load_playlistcontainer,
+%     test_load_user_playlistcontainer,
+     test_load_playlist
     ].
 
 
@@ -22,9 +20,8 @@ test_debug(_) ->
     [begin
          espotify_nif:debug(),
          expect_callback(debug)
-     end || _ <- lists:seq(0,10000000)],
+     end || _ <- lists:seq(0,10000)],
     ct:print("~p", [ok]).
-
 
 
 test_load_playlistcontainer(_) ->

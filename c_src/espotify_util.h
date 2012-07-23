@@ -20,4 +20,6 @@ void clean_temp_env();
 ERL_NIF_TERM *obtain_reference(ErlNifEnv *creation_env);
 ERL_NIF_TERM return_reference(ERL_NIF_TERM *ref);
 
+ERL_NIF_TERM make_binary(ErlNifEnv *env, const char *string);
+
 #endif

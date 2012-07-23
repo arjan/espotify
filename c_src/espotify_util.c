@@ -26,6 +26,14 @@ void clean_temp_env()
     }
 }
 
+ERL_NIF_TERM make_binary(ErlNifEnv *env, const char *string)
+{
+    ErlNifBinary bin;
+    enif_alloc_binary(strlen(string), &bin);
+    memcpy(bin.data, string, strlen(string));
+    return enif_make_binary(env, &bin);
+}
+
 
 void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
 {
@@ -112,7 +120,7 @@ ERL_NIF_TERM artist_tuple(ErlNifEnv* env, sp_session *sess, sp_artist *artist)
         enif_make_atom(env, "sp_artist"),
         BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
-        loaded ? enif_make_string(env, sp_artist_name(artist), ERL_NIF_LATIN1) : undefined,
+        loaded ? make_binary(env, sp_artist_name(artist)) : undefined,
         (loaded && has_portrait) ? enif_make_string(env, portrait_link_str, ERL_NIF_LATIN1) : undefined
         );
 }
@@ -150,8 +158,8 @@ ERL_NIF_TERM album_tuple(ErlNifEnv* env, sp_session *sess, sp_album *album, int 
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
         loaded ? BOOL_TERM(env, sp_album_is_available(album)) : undefined,
         loaded && recurse ? artist_tuple(env, sess, sp_album_artist(album)) : undefined,
-        undefined, // FIXME cover loaded ? enif_make_string(env, sp_album_cover(album), ERL_NIF_LATIN1) : undefined,
-        loaded ? enif_make_string(env, sp_album_name(album), ERL_NIF_LATIN1) : undefined,
+        undefined, // FIXME cover loaded ? make_binary(env, sp_album_cover(album)) : undefined,
+        loaded ? make_binary(env, sp_album_name(album)) : undefined,
         loaded ? enif_make_uint(env, sp_album_year(album)) : undefined,
         enif_make_atom(env, type_str)
         );
@@ -190,7 +198,7 @@ ERL_NIF_TERM track_tuple(ErlNifEnv* env, sp_session *sess, sp_track *track, int 
         loaded ? BOOL_TERM(env, sp_track_is_local(sess, track)) : undefined,
         artists,
         loaded && recurse ? album_tuple(env, sess, sp_track_album(track), 0) : undefined,
-        loaded ? enif_make_string(env, sp_track_name(track), ERL_NIF_LATIN1) : undefined,
+        loaded ? make_binary(env, sp_track_name(track)) : undefined,
         loaded ? enif_make_uint(env, sp_track_duration(track)) : undefined,
         loaded ? enif_make_uint(env, sp_track_popularity(track)) : undefined,
         loaded ? enif_make_uint(env, sp_track_disc(track)) : undefined,
@@ -216,7 +224,7 @@ ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse 
     total = sp_albumbrowse_num_copyrights(albumbrowse);
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
-        list[i] = enif_make_string(env, sp_albumbrowse_copyright(albumbrowse, i), ERL_NIF_LATIN1);
+        list[i] = make_binary(env, sp_albumbrowse_copyright(albumbrowse, i));
     }
     ERL_NIF_TERM copyrights = enif_make_list_from_array(env, list, total);
     enif_free(list);
@@ -229,7 +237,7 @@ ERL_NIF_TERM albumbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_albumbrowse 
         artist_tuple(env, sess, sp_albumbrowse_artist(albumbrowse)),
         copyrights,
         tracks,
-        enif_make_string(env, sp_albumbrowse_review(albumbrowse), ERL_NIF_LATIN1)
+        make_binary(env, sp_albumbrowse_review(albumbrowse))
         );
 }
 
@@ -297,7 +305,7 @@ ERL_NIF_TERM artistbrowse_tuple(ErlNifEnv* env, sp_session *sess, sp_artistbrows
         tophit_tracks,
         albums,
         similar_artists,
-        enif_make_string(env, sp_artistbrowse_biography(artistbrowse), ERL_NIF_LATIN1)
+        make_binary(env, sp_artistbrowse_biography(artistbrowse))
         );
 }
 
@@ -315,8 +323,8 @@ ERL_NIF_TERM user_tuple(ErlNifEnv* env, sp_session *sess, sp_user *user)
         4,
         enif_make_atom(env, "sp_user"),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
-        enif_make_string(env, sp_user_canonical_name(user), ERL_NIF_LATIN1),
-        enif_make_string(env, sp_user_display_name(user), ERL_NIF_LATIN1)
+        make_binary(env, sp_user_canonical_name(user)),
+        make_binary(env, sp_user_display_name(user))
         );
 }
 
@@ -332,7 +340,7 @@ ERL_NIF_TERM playlist_track_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist 
         enif_make_uint(env, sp_playlist_track_create_time(playlist, track)),
         user_tuple(env, sess, sp_playlist_track_creator(playlist, track)),
         BOOL_TERM(env, sp_playlist_track_seen(playlist, track)),
-        message ? enif_make_string(env, message, ERL_NIF_LATIN1) : undefined
+        message ? make_binary(env, message) : undefined
         );
 }
 
@@ -383,10 +391,10 @@ ERL_NIF_TERM playlist_tuple(ErlNifEnv* env, sp_session *sess, sp_playlist *playl
         enif_make_atom(env, "sp_playlist"),
         BOOL_TERM(env, loaded),
         enif_make_string(env, link_str, ERL_NIF_LATIN1),
-        enif_make_string(env, sp_playlist_name(playlist), ERL_NIF_LATIN1),
+        make_binary(env, sp_playlist_name(playlist)),
         user_tuple(env, sess, sp_playlist_owner(playlist)),
         BOOL_TERM(env, sp_playlist_is_collaborative(playlist)),
-        description ? enif_make_string(env, description, ERL_NIF_LATIN1) : undefined,
+        description ? make_binary(env, description) : undefined,
         image,
         num_tracks,
         tracks
@@ -424,9 +432,8 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
                 enif_make_atom(env, "start_folder"),
                 enif_make_uint64(env, 
                                  sp_playlistcontainer_playlist_folder_id(container, i)),
-                enif_make_string(env, 
-                                 foldername,
-                                 ERL_NIF_LATIN1)
+                make_binary(env, 
+                            foldername)
                 );
             break;
         case SP_PLAYLIST_TYPE_END_FOLDER:
@@ -495,8 +502,8 @@ ERL_NIF_TERM search_result_tuple(ErlNifEnv* env, sp_session *sess, sp_search *se
         env,
         11,
         enif_make_atom(env, "sp_search_result"),
-        enif_make_string(env, sp_search_query(search), ERL_NIF_LATIN1), // q :: string(),
-        enif_make_string(env, sp_search_did_you_mean(search), ERL_NIF_LATIN1), // did_you_mean :: string(),
+        make_binary(env, sp_search_query(search)), // q :: string(),
+        make_binary(env, sp_search_did_you_mean(search)), // did_you_mean :: string(),
         enif_make_uint(env, sp_search_total_tracks(search)), // total_tracks :: non_neg_integer(),
         enif_make_uint(env, sp_search_total_albums(search)), // total_albums :: non_neg_integer(),
         enif_make_uint(env, sp_search_total_artists(search)), // total_artists :: non_neg_integer(),
@@ -533,7 +540,7 @@ void esp_error_feedback(void *erl_pid, const char *callback_name, char *msg_in)
 
     callback_result(erl_pid,
                     callback_name,
-                    ERROR_TERM(env, enif_make_string(env, msg_in, ERL_NIF_LATIN1))
+                    ERROR_TERM(env, make_binary(env, msg_in))
         );
     enif_clear_env(env);
 }

@@ -2,8 +2,8 @@
    sp_user,
    {
      link :: string(),
-     canonical_name :: string(),
-     display_name :: string()
+     canonical_name :: binary(),
+     display_name :: binary()
    }).
 
 -record(
@@ -11,7 +11,7 @@
    {
      is_loaded :: boolean(),
      link :: string(),
-     name :: string(),
+     name :: binary(),
      portrait :: string()
    }).
 
@@ -23,7 +23,7 @@
      is_available = false :: boolean(),
      artist :: #sp_artist{},
      cover :: string(),
-     name :: string(),
+     name :: binary(),
      year :: non_neg_integer(),
      type = undefined :: album | single | compilation | unknown
    }).
@@ -37,7 +37,7 @@
      is_starred :: boolean(),
      artists :: [#sp_artist{}],
      album :: #sp_album{},
-     name :: string(),
+     name :: binary(),
      duration :: non_neg_integer(),
      popularity :: non_neg_integer(),
      disc :: non_neg_integer(),
@@ -49,9 +49,9 @@
    {
      album :: #sp_album{},
      artist :: #sp_artist{},
-     copyrights :: [string()],
+     copyrights :: [binary()],
      tracks :: [#sp_track{}],
-     review :: string()
+     review :: binary()
    }).
 
 -record(
@@ -63,7 +63,7 @@
      tophit_tracks :: [#sp_track{}],
      albums :: [#sp_album{}],
      similar_artists :: [#sp_artist{}],
-     biography :: string()
+     biography :: binary()
    }).
 
 -record(
@@ -81,7 +81,7 @@
      create_time  :: non_neg_integer(),
      creator :: #sp_user{},
      seen :: boolean(),
-     message :: string()
+     message :: binary()
    }).
 
 -record(
@@ -89,10 +89,10 @@
    {
      is_loaded :: boolean(),
      link :: string(),
-     name :: string(),
+     name :: binary(),
      owner :: #sp_user{},
      collaborative :: boolean(),
-     description :: string(),
+     description :: binary(),
      image :: string(),
      num_tracks :: non_neg_integer(),
      tracks :: [#sp_playlist_track{}]
@@ -104,7 +104,7 @@
      owner :: #sp_user{},
      contents :: [#sp_playlist{} |
                   not_loaded |
-                  {start_folder, Id::integer(), Name::string()} | 
+                  {start_folder, Id::integer(), Name::binary()} | 
                   end_folder | 
                   placeholder]
    }).
@@ -112,7 +112,7 @@
 -record(
    sp_search_query,
    {
-     q :: string(),
+     q :: binary(),
      track_offset = 0 :: integer,
      track_count = 0 :: integer,
      album_offset = 0 :: integer,
@@ -127,8 +127,8 @@
 -record(
    sp_search_result,
    {
-     q :: string(),
-     did_you_mean :: string(),
+     q :: binary(),
+     did_you_mean :: binary(),
      total_tracks :: non_neg_integer(),
      total_albums :: non_neg_integer(),
      total_artists :: non_neg_integer(),

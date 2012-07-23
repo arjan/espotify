@@ -50,7 +50,8 @@ test_start(C) ->
     Password = proplists:get_value(password, C),
 
     ok = espotify_nif:start(self(), "/tmp/espotify_nif", "/tmp/espotify_nif", Username, Password),
-    {ok, U=#sp_user{canonical_name=Username}} = expect_callback(logged_in),
+    {ok, U=#sp_user{canonical_name=UsernameBin}} = expect_callback(logged_in),
+    UsernameBin = list_to_binary(Username),
     ct:print("Login OK as ~s", [U#sp_user.link]),
     ok.
 
