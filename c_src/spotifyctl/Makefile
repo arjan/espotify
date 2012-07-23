@@ -14,8 +14,8 @@ AUDIO_DRIVER ?= alsa
 endif
 
 TARGET = spotifyctl
-## TARGET = playtrack
-OBJS = $(TARGET).o appkey.o $(AUDIO_DRIVER)-audio.o audio.o
+
+OBJS = $(TARGET).o appkey.o $(AUDIO_DRIVER)-audio.o audio.o playlists.o
 
 $(TARGET): $(OBJS)
 #	$(CC) $(CFLAGS) $(LDFLAGS) $^ -shared -Wl,-soname,libspotifyctl.so.1 -o lib$@.so $(LDLIBS)
@@ -85,4 +85,4 @@ dummy-audio.o: dummy-audio.c audio.h
 osx-audio.o: osx-audio.c audio.h
 openal-audio.o: openal-audio.c audio.h
 spotify.o: spotify.c audio.h
-playtrack.o: playtrack.c audio.h
+playlists.o: playlists.c spotifyctl.h

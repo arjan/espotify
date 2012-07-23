@@ -9,8 +9,6 @@
 
 #define MAX_LINK 1024
 
-#define DBG(d) (fprintf(stderr, "DEBUG: " d "\n"))
-
 static ErlNifEnv *_temp_env = NULL;
 
 ErlNifEnv *temp_env()
