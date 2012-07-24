@@ -97,7 +97,7 @@ static void pl_state_change(sp_playlist *pl, void *userdata)
             load_queue_add(Q_LOAD_PLAYLIST_TRACK, userdata, track, pl);
         }
         if (all_loaded) {
-            esp_player_load_playlist_feedback(g_state.erl_pid, g_state.session, userdata, pl);
+            esp_player_load_playlist_feedback(g_state.async_state, g_state.session, userdata, pl);
             sp_playlist_release(pl);
         }
     }
@@ -124,7 +124,7 @@ static void pl_pc_state_change(sp_playlist *pl, void *userdata)
             }        
         }
         if (all_loaded) {
-            esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, data->reference, pc);
+            esp_player_load_playlistcontainer_feedback(g_state.async_state, g_state.session, data->reference, pc);
             sp_playlistcontainer_release(pc);
             free(data);
         }
@@ -158,7 +158,7 @@ static void container_loaded(sp_playlistcontainer *pc, void *userdata)
     }
     if (all_loaded) {
         container_load_data *data = (container_load_data *)userdata;
-        esp_player_load_playlistcontainer_feedback(g_state.erl_pid, g_state.session, data->reference, pc);
+        esp_player_load_playlistcontainer_feedback(g_state.async_state, g_state.session, data->reference, pc);
         sp_playlistcontainer_release(pc);
         free(data);
     }

@@ -15,14 +15,6 @@ all() ->
     ].
 
 
-test_debug(_) ->
-    ok = espotify_nif:set_pid(self()),
-    [begin
-         espotify_nif:debug(),
-         expect_callback(debug)
-     end || _ <- lists:seq(0,10000)],
-    ct:print("~p", [ok]).
-
 
 test_load_playlistcontainer(_) ->
     ok = espotify_nif:set_pid(self()),

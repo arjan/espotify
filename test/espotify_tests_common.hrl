@@ -1,6 +1,6 @@
 %% Shared functions
 
-init_per_suite(_Config) ->
+init_per_testcase(_, _Config) ->
     {ok, Username} = application:get_env(espotify, username),
     {ok, Password} = application:get_env(espotify, password),
     {ok, TmpDir} = application:get_env(espotify, tmp_dir),
@@ -8,7 +8,7 @@ init_per_suite(_Config) ->
     expect_callback(logged_in),
     _Config.
 
-end_per_suite(_Config) ->
+end_per_testcase(_, _Config) ->
     flush_messages(),
     espotify_nif:stop(),
     _Config.
@@ -26,6 +26,7 @@ flush_messages() ->
 expect_callback(Callback) ->
     receive
         {'$spotify_callback', Callback, Result} ->
+            %ct:print("~p: ~p", [Callback, Result]),
             Result;
         {'$spotify_callback', Cb2, _} ->
             ct:print("ignored: ~p", [Cb2]),

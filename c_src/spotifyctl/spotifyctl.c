@@ -28,14 +28,14 @@ spotifyctl_state g_state = {};
 static void logged_in(sp_session *sess, sp_error error)
 {
     if (SP_ERROR_OK != error) {
-        esp_error_feedback(g_state.erl_pid, "logged_in", sp_error_message(error));
+        esp_error_feedback(g_state.async_state, "logged_in", sp_error_message(error));
         return;
     }
 
     g_state.playlistcontainer = sp_session_playlistcontainer(g_state.session);
     load_container(g_state.playlistcontainer, NULL);
 
-    esp_logged_in_feedback(g_state.erl_pid, g_state.session, sp_session_user(g_state.session));
+    esp_logged_in_feedback(g_state.async_state, g_state.session, sp_session_user(g_state.session));
 }
 
 static void logged_out(sp_session *sess)
@@ -112,7 +112,7 @@ static void end_of_track(sp_session *sess)
 {
     sp_track_release(g_state.current_track);
     g_state.current_track = NULL;
-    esp_atom_feedback((void *)g_state.erl_pid, "player_play", "end_of_track");
+    esp_atom_feedback(g_state.async_state, "player_play", "end_of_track");
 }
 
 
@@ -134,7 +134,7 @@ static void metadata_updated(sp_session *sess)
         }
         g_state.current_track = g_state.player_load_track;
         g_state.player_load_track = 0;
-        esp_player_load_feedback(g_state.erl_pid, g_state.session, g_state.current_track);
+        esp_player_load_feedback(g_state.async_state, g_state.session, g_state.current_track);
         return;
     }
     load_queue_check();
@@ -260,12 +260,6 @@ void handle_cmd_player_load()
     g_state.cmd_result = CMD_RESULT_OK;
 }
 
-// record the pid
-void spotifyctl_set_pid(void *erl_pid)
-{
-    g_state.erl_pid = erl_pid;
-}
-
 int spotifyctl_has_current_track()
 {
     return g_state.current_track != NULL;
@@ -300,7 +294,7 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
         sp_track_add_ref(track);
         load_queue_add(Q_LOAD_TRACK, reference, track, NULL);
     } else {
-        esp_player_track_info_feedback(g_state.erl_pid, g_state.session, reference, track);
+        esp_player_track_info_feedback(g_state.async_state, g_state.session, reference, track);
     }
     sp_link_release(link);
 
@@ -309,7 +303,7 @@ int spotifyctl_track_info(const char *link_str, void *reference, char **error_ms
 
 void spotifyctl_albumbrowse_complete(sp_albumbrowse *result, void *reference)
 {
-    esp_player_browse_album_feedback(g_state.erl_pid, g_state.session, reference, result);
+    esp_player_browse_album_feedback(g_state.async_state, g_state.session, reference, result);
     sp_albumbrowse_release(result);
 }
 
@@ -340,7 +334,7 @@ int spotifyctl_browse_album(const char *link_str, void *reference, char **error_
 
 void spotifyctl_artistbrowse_complete(sp_artistbrowse *result, void *reference)
 {
-    esp_player_browse_artist_feedback(g_state.erl_pid, g_state.session, reference, result);
+    esp_player_browse_artist_feedback(g_state.async_state, g_state.session, reference, result);
     sp_artistbrowse_release(result);
 }
 
@@ -366,7 +360,7 @@ int spotifyctl_browse_artist(const char *link_str, sp_artistbrowse_type type, vo
 
 void spotifyctl_load_image_complete(sp_image *result, void *reference)
 {
-    esp_player_load_image_feedback(g_state.erl_pid, g_state.session, reference, result);
+    esp_player_load_image_feedback(g_state.async_state, g_state.session, reference, result);
     sp_image_release(result);
 }
 
@@ -397,7 +391,7 @@ int spotifyctl_load_image(const char *link_str, void *reference, char **error_ms
 
 void spotifyctl_search_complete(sp_search *search, void *reference)
 {
-    esp_player_search_feedback(g_state.erl_pid, g_state.session, reference, search);
+    esp_player_search_feedback(g_state.async_state, g_state.session, reference, search);
     sp_search_release(search);
 }
 
@@ -451,7 +445,7 @@ void load_queue_check()
             { 
             case Q_LOAD_TRACK:
                 // do callback
-                esp_player_track_info_feedback(g_state.erl_pid, g_state.session, q->reference, q->track);
+                esp_player_track_info_feedback(g_state.async_state, g_state.session, q->reference, q->track);
                 break;
             case Q_LOAD_PLAYLIST_TRACK:
                 // check if all tracks in the playlist are loaded
@@ -462,7 +456,7 @@ void load_queue_check()
                     }
                 }
                 if (ok) {
-                    esp_player_load_playlist_feedback(g_state.erl_pid, g_state.session, q->reference, q->playlist);
+                    esp_player_load_playlist_feedback(g_state.async_state, g_state.session, q->reference, q->playlist);
                     sp_playlist_release(q->playlist);
                 }
             }
@@ -484,7 +478,7 @@ void spotifyctl_stop()
     sp_session_logout(g_state.session);
 }
 
-int spotifyctl_run(void *erl_pid,
+int spotifyctl_run(void *async_state,
                    const char *cache_location,
                    const char *settings_location,
                    const char *username,
@@ -493,7 +487,7 @@ int spotifyctl_run(void *erl_pid,
     sp_error err;
     int next_timeout = 0;
 
-    spotifyctl_set_pid(erl_pid);
+    g_state.async_state = async_state;
     
     if (!g_state.session)
     {
@@ -616,7 +610,7 @@ int spotifyctl_run(void *erl_pid,
 
     // clear the state
     g_state.running = 0;
-    g_state.erl_pid = NULL;
+    g_state.async_state = NULL;
     if (g_state.player_load_track) {
         sp_track_release(g_state.player_load_track);
         g_state.player_load_track = NULL;

@@ -6,6 +6,7 @@
 #include "spotifyctl/spotifyctl.h"
 #include "espotify_util.h"
 #include "espotify_callbacks.h"
+#include "espotify_async.h"
 
 #include "erl_nif.h"
 
@@ -24,8 +25,8 @@ typedef struct  {
     char password[MAX_USERNAME];
     char cache_location[MAX_PATH];
     char settings_location[MAX_PATH];
-    ErlNifPid pid; /* the calling process for sending async feedback. */
     ErlNifTid tid;
+    async_state_t *async_state;
 } espotify_session;
 
 typedef struct
@@ -39,7 +40,7 @@ ErlNifPid return_pid;
 void *run_main_thread(void *data)
 {
     espotify_session *session = (espotify_session *)data;
-    spotifyctl_run(&session->pid,
+    spotifyctl_run(session->async_state,
                    session->cache_location, session->settings_location,
                    session->username, session->password);
     return NULL;
@@ -57,9 +58,13 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc,
 
     priv->session = (espotify_session *)enif_alloc(sizeof(espotify_session));
     priv->callback_env = enif_alloc_env();
-
-    if (!enif_get_local_pid(env, argv[0], &priv->session->pid))
+    priv->session->async_state = async_start();
+        
+    ErlNifPid pid;
+    if (!enif_get_local_pid(env, argv[0], &pid))
         return enif_make_badarg(env);
+
+    async_set_pid(priv->session->async_state, pid);
 
     if (enif_get_string(env, argv[1], priv->session->cache_location, MAX_PATH, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
@@ -89,6 +94,10 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     spotifyctl_stop();
 
+    // wait for async thread to exit
+    async_stop(priv->session->async_state);
+    priv->session->async_state = NULL;
+    
     // wait for spotify thread to exit
     enif_thread_join(priv->session->tid, &resp);
 
@@ -111,10 +120,12 @@ static ERL_NIF_TERM espotify_set_pid(ErlNifEnv* env, int argc,
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    if (!enif_get_local_pid(env, argv[0], &priv->session->pid))
+    ErlNifPid pid;
+    
+    if (!enif_get_local_pid(env, argv[0], &pid))
         return enif_make_badarg(env);
 
-    spotifyctl_set_pid(&priv->session->pid);
+    async_set_pid(priv->session->async_state, pid);
 
     return enif_make_atom(env, "ok");
 }
@@ -427,11 +438,13 @@ static ERL_NIF_TERM espotify_debug(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
-    ERL_NIF_TERM myref = enif_make_copy(env, *reference);
-    
-    esp_debug((void *)&priv->session->pid, reference);
-    return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
+    //ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    //ERL_NIF_TERM myref = enif_make_copy(env, *reference);
+
+    esp_debug(priv->session->async_state, NULL);
+
+    return enif_make_atom(env, "ok");
+    //return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
 }
 
 

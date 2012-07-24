@@ -7,14 +7,10 @@
 #define MAX_LINK 1024
 #define MAX_QUERY 1024
 
-#define USER_AGENT "espotify"
 #define CHECK_VALID_LINK(link) if (!link) { *error_msg = "Parsing link failed"; return CMD_RESULT_ERROR;}
-#define DBG(d) (fprintf(stderr, "DEBUG [%p]: " d "\n", (void *)pthread_self()))
 
-
-int spotifyctl_run(void *erl_pid, const char *cache_location, const char *settings_location,
+int spotifyctl_run(void *async_state, const char *cache_location, const char *settings_location,
                    const char *username, const char *password);
-void spotifyctl_set_pid(void *erl_pid);
 int spotifyctl_has_current_track();
 void spotifyctl_stop();
 
@@ -97,8 +93,8 @@ typedef struct {
     // Non-zero when running the main loop
     int running;
 
-    // the pid object for communicating back
-    void *erl_pid;
+    // the async queue for communicating back
+    void *async_state;
 
     // The global session handle
     sp_session *session;

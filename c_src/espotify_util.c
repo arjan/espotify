@@ -6,7 +6,9 @@
 
 #include "spotifyctl/spotifyctl.h"
 #include "espotify_util.h"
+#include "espotify_async.h"
 
+#define DBG(x) fprintf(stderr, "DEBUG: " x "\n");
 #define MAX_LINK 1024
 
 static ErlNifEnv *_temp_env = NULL;
@@ -35,23 +37,18 @@ ERL_NIF_TERM make_binary(ErlNifEnv *env, const char *string)
 }
 
 
-void callback_result(void *erl_pid, const char *callback_name, ERL_NIF_TERM term)
+ERL_NIF_TERM cb_result(ErlNifEnv *env, const char *callback_name, ERL_NIF_TERM term)
 {
-    ErlNifEnv* env = temp_env();
-    if (!enif_send(NULL, 
-                   (ErlNifPid *)erl_pid, 
-                   env,
-                   enif_make_tuple3(
-                       env,
-                       enif_make_atom(env, "$spotify_callback"),
-                       enif_make_atom(env, callback_name),
-                       term)
-            )) {
-        fprintf(stderr, "error sending feedback, process might be gone\n");
-    }
+    return enif_make_tuple3(
+        env,
+        enif_make_atom(env, "$spotify_callback"),
+        enif_make_atom(env, callback_name),
+        term);
 }
 
-
+void callback_result(ErlNifPid *pid, const char *callback_name, ERL_NIF_TERM term)
+{
+}
 /*
  * ============ Start data representation =============
  */
@@ -556,19 +553,19 @@ void esp_atom_feedback(void *erl_pid, const char *callback_name, char *atom_in)
     enif_clear_env(env);
 }
 
-void esp_logged_in_feedback(void *erl_pid, sp_session *sess, sp_user *user)
+void esp_logged_in_feedback(void *state, sp_session *sess, sp_user *user)
 {
-    ErlNifEnv* env = temp_env();
-    
-    callback_result(erl_pid,
-                    "logged_in",
-                    enif_make_tuple2(
-                        env,
-                        enif_make_atom(env, "ok"),
-                        user_tuple(env, sess, user)
-                        )
-        );
-    enif_clear_env(env);
+    ErlNifEnv* env = async_env_acquire((async_state_t *)state);
+    async_env_release_and_send(
+        (async_state_t *)state,
+        cb_result(env,
+                  "logged_in",
+                  enif_make_tuple2(
+                      env,
+                      enif_make_atom(env, "ok"),
+                      user_tuple(env, sess, user)
+                      )
+            ));
 }
 
 void esp_player_load_feedback(void *erl_pid, sp_session *sess, sp_track *track) 
@@ -702,19 +699,19 @@ void esp_player_load_playlist_feedback(void *erl_pid, sp_session *session, void 
 }
 
 
-void esp_debug(void *erl_pid, void *refptr)
+void esp_debug(void *st, void *refptr)
 {
-    ErlNifEnv* env = temp_env();
-        
-    callback_result(erl_pid,
-                    "debug",
-                    OK_TERM(env,
-                            enif_make_tuple2(
-                                env,
-                                return_reference((ERL_NIF_TERM *)refptr),
-                                enif_make_atom(env, "ok")
-                                )
-                        )
-        );
-    enif_clear_env(env);
+    async_state_t *state = (async_state_t *)st;
+    ErlNifEnv* env = async_env_acquire(state);
+    async_env_release_and_send(
+        state,
+        cb_result(
+            env,
+            "debug",
+            enif_make_atom(env, "ok..")
+            /* OK_TERM(env, */
+            /*         async_return_ref(state, (ERL_NIF_TERM *)refptr) */
+            /*     ) */
+            /* ) */
+            ));
 }
