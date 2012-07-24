@@ -32,7 +32,6 @@ typedef struct  {
 typedef struct
 {
     espotify_session *session;
-    ErlNifEnv *callback_env;
 } espotify_private;
 
 ErlNifPid return_pid;
@@ -46,6 +45,24 @@ void *run_main_thread(void *data)
     return NULL;
 }
 
+static void do_stop(espotify_private *priv)
+{
+    void *resp;
+
+    spotifyctl_stop();
+
+    // wait for async thread to exit
+    async_stop(priv->session->async_state);
+    priv->session->async_state = NULL;
+    
+    // wait for spotify thread to exit
+    enif_thread_join(priv->session->tid, &resp);
+
+    // clean up
+    enif_free(priv->session);
+    priv->session = NULL;
+}    
+
 static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc, 
                                    const ERL_NIF_TERM argv[])
 {
@@ -57,7 +74,6 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc,
     }
 
     priv->session = (espotify_session *)enif_alloc(sizeof(espotify_session));
-    priv->callback_env = enif_alloc_env();
     priv->session->async_state = async_start();
         
     ErlNifPid pid;
@@ -90,25 +106,9 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    void *resp;
-
-    spotifyctl_stop();
-
-    // wait for async thread to exit
-    async_stop(priv->session->async_state);
-    priv->session->async_state = NULL;
+    do_stop(priv);
     
-    // wait for spotify thread to exit
-    enif_thread_join(priv->session->tid, &resp);
-
-    // clean up
-    enif_free(priv->session);
-    priv->session = NULL;
-
-    enif_free_env(priv->callback_env);
-    priv->callback_env = NULL;
-
-    clean_temp_env();
+    //clean_temp_env();
     
     return enif_make_atom(env, "ok");
 }
@@ -235,7 +235,8 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+
+    ERL_NIF_TERM *reference = obtain_reference(env); //FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_track_info(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -256,7 +257,7 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); //FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_album(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -292,7 +293,7 @@ static ERL_NIF_TERM espotify_browse_artist(ErlNifEnv* env, int argc, const ERL_N
         return enif_make_badarg(env);
     }
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_artist(link, type, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -312,7 +313,7 @@ static ERL_NIF_TERM espotify_load_image(ErlNifEnv* env, int argc, const ERL_NIF_
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_load_image(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -370,7 +371,7 @@ static ERL_NIF_TERM espotify_search(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     } else
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     spotifyctl_search(query, (void *)reference);
@@ -382,7 +383,7 @@ static ERL_NIF_TERM espotify_load_playlistcontainer(ErlNifEnv* env, int argc, co
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     char *error_msg;
@@ -403,7 +404,7 @@ static ERL_NIF_TERM espotify_load_user_playlistcontainer(ErlNifEnv* env, int arg
     if (enif_get_string(env, argv[0], name, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_user_playlistcontainer(name, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -423,7 +424,7 @@ static ERL_NIF_TERM espotify_load_playlist(ErlNifEnv* env, int argc, const ERL_N
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(priv->callback_env);
+    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_playlist(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -441,9 +442,9 @@ static ERL_NIF_TERM espotify_debug(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     //ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     //ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
-    esp_debug(priv->session->async_state, NULL);
+    //esp_debug(priv->session->async_state, NULL);
 
-    return enif_make_atom(env, "ok");
+    return make_atom(env, "ok");
     //return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
 }
 
@@ -461,18 +462,9 @@ static void unload(ErlNifEnv* env, void* priv_data)
 {
     espotify_private *priv = (espotify_private *)priv_data;
     if (priv->session) {
-        spotifyctl_stop();
-
-        // wait for spotify thread to exit
-        void *resp;
-        enif_thread_join(priv->session->tid, &resp);
-
-        enif_free(priv->session);
-        priv->session = NULL;
+        do_stop(priv);
     }
-    /* enif_free_env(priv->callback_env); */
-    /* enif_free_env(temp_env()); */
-    /* enif_free(priv); */
+    //enif_free(priv);
 }
 
 static ErlNifFunc nif_funcs[] =

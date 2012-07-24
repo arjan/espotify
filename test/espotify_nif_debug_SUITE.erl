@@ -29,6 +29,7 @@ all() ->
 
 
 test_debug(_) ->
+    ct:print("~p", [start]),
     ok = espotify_nif:set_pid(self()),
     [begin
          espotify_nif:debug()
