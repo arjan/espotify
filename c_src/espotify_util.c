@@ -391,8 +391,6 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
     sp_link *link;
 
     total = sp_playlistcontainer_num_playlists(container);
-    total = 0;
-    fprintf(stderr, "Total: %d\n", total);
 
     list = (ERL_NIF_TERM *)enif_alloc(total * sizeof(ERL_NIF_TERM));
     for (i=0; i<total; i++) {
@@ -429,7 +427,6 @@ ERL_NIF_TERM playlistcontainer_tuple(ErlNifEnv* env, sp_session *sess, sp_playli
     }
     ERL_NIF_TERM contents = enif_make_list_from_array(env, list, total);
     enif_free(list);
-    DBG("Y");
     
     return enif_make_tuple(
         env,

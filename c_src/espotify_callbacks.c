@@ -25,7 +25,7 @@ void esp_error_feedback(void *st, const char *callback_name, char *msg_in)
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             callback_name,
@@ -39,7 +39,7 @@ void esp_atom_feedback(void *st, const char *callback_name, char *atom_in)
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             callback_name,
@@ -51,7 +51,7 @@ void esp_logged_in_feedback(void *state, sp_session *sess, sp_user *user)
 {
     ErlNifEnv* env = async_env_acquire((async_state_t *)state);
     async_env_release_and_send(
-        (async_state_t *)state,
+        (async_state_t *)state, env, 
         cb_result(env,
                   "logged_in",
                   enif_make_tuple2(
@@ -68,7 +68,7 @@ void esp_player_load_feedback(void *st, sp_session *sess, sp_track *track)
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "player_load",
@@ -82,7 +82,7 @@ void esp_player_track_info_feedback(void *st, sp_session *sess, void *refptr, sp
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "track_info",
@@ -101,7 +101,7 @@ void esp_player_browse_album_feedback(void *st, sp_session *session, void *refpt
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "browse_album",
@@ -120,7 +120,7 @@ void esp_player_browse_artist_feedback(void *st, sp_session *session, void *refp
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "browse_artist",
@@ -139,7 +139,7 @@ void esp_player_load_image_feedback(void *st, sp_session *session, void *refptr,
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "load_image",
@@ -159,7 +159,7 @@ void esp_player_search_feedback(void *st, sp_session *session, void *refptr, sp_
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "search",
@@ -182,13 +182,13 @@ void esp_player_load_playlistcontainer_feedback(void *st, sp_session *session, v
 
     ERL_NIF_TERM ref;
     if (refptr) {
-        ref = async_return_ref(state, (ERL_NIF_TERM *)refptr);
+        ref = async_return_ref(state,  (ERL_NIF_TERM *)refptr);
     } else {
         ref = make_atom(env, "undefined");
     }
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "load_playlistcontainer",
@@ -209,7 +209,7 @@ void esp_player_load_playlist_feedback(void *st, sp_session *session, void *refp
     ErlNifEnv* env = async_env_acquire(state);
     
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "load_playlist",
@@ -228,7 +228,7 @@ void esp_debug(void *st, void *refptr)
     ErlNifEnv* env = async_env_acquire(state);
 
     async_env_release_and_send(
-        state,
+        state, env, 
         cb_result(
             env,
             "debug",

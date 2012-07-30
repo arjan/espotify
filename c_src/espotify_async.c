@@ -55,12 +55,13 @@ queue_destroy(queue_t* queue)
 }
 
 int
-queue_push(queue_t* queue, ERL_NIF_TERM term)
+queue_push(queue_t* queue, ErlNifEnv *env, ERL_NIF_TERM term)
 {
     qitem_t* item = (qitem_t*) enif_alloc(sizeof(qitem_t));
     if(item == NULL) return 0;
 
     item->term = term;
+    item->env = env;
     item->next = NULL;
 
     enif_mutex_lock(queue->lock);
@@ -126,18 +127,16 @@ thr_main(void* obj)
     async_state_t* state = (async_state_t*) obj;
     qitem_t* item;
 
-    state->env = enif_alloc_env();
     state->ref_env = enif_alloc_env();
     state->ref_cnt = 0;
     
     state->queue->stopping = 0;
     while((item = queue_pop(state->queue)) != NULL)
     {
-        enif_send(NULL, &state->pid, state->env, item->term);
+        enif_send(NULL, &state->pid, item->env, item->term);
+        enif_free_env(item->env);
         enif_free(item);
-        if (state->queue->tail == NULL || state->queue->tail->next == NULL) {
-            enif_clear_env(state->env);
-        }
+
         if (state->ref_cnt == 0) {
             enif_clear_env(state->ref_env);
         }
@@ -178,8 +177,6 @@ void async_stop(async_state_t *state)
 
     queue_destroy(state->queue);
 
-    enif_free_env(state->env);
-
     enif_clear_env(state->ref_env);
     enif_free_env(state->ref_env);
 
@@ -191,13 +188,13 @@ void async_stop(async_state_t *state)
 ErlNifEnv *async_env_acquire(async_state_t *state)
 {
     enif_mutex_lock(state->queue->lock);
-    return state->env;
+    return enif_alloc_env();
 }
 
-void async_env_release_and_send(async_state_t *state, ERL_NIF_TERM term)
+void async_env_release_and_send(async_state_t *state, ErlNifEnv *env, ERL_NIF_TERM term)
 {
     enif_mutex_unlock(state->queue->lock);
-    queue_push(state->queue, term);
+    queue_push(state->queue, env, term);
 }
 
 void async_set_pid(async_state_t *state, ErlNifPid pid)
