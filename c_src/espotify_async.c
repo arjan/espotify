@@ -3,6 +3,9 @@
 #include "erl_nif.h"
 #include "espotify_async.h"
 
+#define DBG(x) fprintf(stderr, "DEBUG: " x "\n");
+
+
 queue_t*
 queue_create()
 {
@@ -38,8 +41,8 @@ queue_destroy(queue_t* queue)
     ErlNifCond* cond;
 
     enif_mutex_lock(queue->lock);
-    assert(queue->head == NULL && "Destroying a non-empty queue.");
-    assert(queue->tail == NULL && "Destroying queue in invalid state.");
+    //assert(queue->head == NULL && "Destroying a non-empty queue.");
+    //assert(queue->tail == NULL && "Destroying queue in invalid state.");
 
     lock = queue->lock;
     cond = queue->cond;
@@ -149,7 +152,7 @@ async_state_t *async_start()
 {
     async_state_t* state = (async_state_t*) enif_alloc(sizeof(async_state_t));
     if(state == NULL) return NULL;
-
+    
     state->queue = queue_create();
     if(state->queue == NULL) goto error;
 
@@ -160,11 +163,14 @@ async_state_t *async_start()
     {
         goto error;
     }
+    
     return state;
 
 error:
     if(state->queue != NULL) queue_destroy(state->queue);
     enif_free(state->queue);
+    DBG("Error starting async!");
+
     return NULL;
 }
 
@@ -177,9 +183,10 @@ void async_stop(async_state_t *state)
 
     queue_destroy(state->queue);
 
-    enif_clear_env(state->ref_env);
-    enif_free_env(state->ref_env);
-
+    if (state->ref_cnt > 0) {
+        enif_free_env(state->ref_env);
+    }
+    
     enif_thread_opts_destroy(state->opts);
     enif_free(state);
 }

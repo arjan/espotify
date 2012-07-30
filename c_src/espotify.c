@@ -13,6 +13,8 @@
 #define ATOM_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, s)))
 #define STR_ERROR(env, s) (enif_make_tuple2(env, enif_make_atom(env, "error"), (s?make_binary(env, s):enif_make_atom(env, "unknown_error"))))
 
+#define DBG(x) fprintf(stderr, "DEBUG: " x "\n");
+
 #define ASSERT_STARTED(priv) if (!priv->session) {return ATOM_ERROR(env, "not_started");}
 
 #define MAX_PATH 1024
@@ -26,11 +28,11 @@ typedef struct  {
     char cache_location[MAX_PATH];
     char settings_location[MAX_PATH];
     ErlNifTid tid;
-    async_state_t *async_state;
 } espotify_session;
 
 typedef struct
 {
+    async_state_t *async_state;
     espotify_session *session;
 } espotify_private;
 
@@ -38,10 +40,12 @@ ErlNifPid return_pid;
 
 void *run_main_thread(void *data)
 {
-    espotify_session *session = (espotify_session *)data;
-    spotifyctl_run(session->async_state,
-                   session->cache_location, session->settings_location,
-                   session->username, session->password);
+    espotify_private *priv = (espotify_private *)data;
+    spotifyctl_run(priv->async_state,
+                   priv->session->cache_location,
+                   priv->session->settings_location,
+                   priv->session->username,
+                   priv->session->password);
     return NULL;
 }
 
@@ -50,10 +54,6 @@ static void do_stop(espotify_private *priv)
     void *resp;
 
     spotifyctl_stop();
-
-    // wait for async thread to exit
-    async_stop(priv->session->async_state);
-    priv->session->async_state = NULL;
     
     // wait for spotify thread to exit
     enif_thread_join(priv->session->tid, &resp);
@@ -74,13 +74,12 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc,
     }
 
     priv->session = (espotify_session *)enif_alloc(sizeof(espotify_session));
-    priv->session->async_state = async_start();
         
     ErlNifPid pid;
     if (!enif_get_local_pid(env, argv[0], &pid))
         return enif_make_badarg(env);
 
-    async_set_pid(priv->session->async_state, pid);
+    async_set_pid(priv->async_state, pid);
 
     if (enif_get_string(env, argv[1], priv->session->cache_location, MAX_PATH, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
@@ -94,7 +93,7 @@ static ERL_NIF_TERM espotify_start(ErlNifEnv* env, int argc,
     if (enif_get_string(env, argv[4], priv->session->password, MAX_USERNAME, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, (void *)priv->session, NULL))
+    if (enif_thread_create("espotify main loop", &priv->session->tid, run_main_thread, (void *)priv, NULL))
         return enif_make_badarg(env);
 
     return enif_make_atom(env, "ok");
@@ -107,8 +106,6 @@ static ERL_NIF_TERM espotify_stop(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ASSERT_STARTED(priv);
 
     do_stop(priv);
-    
-    //clean_temp_env();
     
     return enif_make_atom(env, "ok");
 }
@@ -125,7 +122,7 @@ static ERL_NIF_TERM espotify_set_pid(ErlNifEnv* env, int argc,
     if (!enif_get_local_pid(env, argv[0], &pid))
         return enif_make_badarg(env);
 
-    async_set_pid(priv->session->async_state, pid);
+    async_set_pid(priv->async_state, pid);
 
     return enif_make_atom(env, "ok");
 }
@@ -236,7 +233,7 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
         return enif_make_badarg(env);
 
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_track_info(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -257,7 +254,7 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_album(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -293,7 +290,7 @@ static ERL_NIF_TERM espotify_browse_artist(ErlNifEnv* env, int argc, const ERL_N
         return enif_make_badarg(env);
     }
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_artist(link, type, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -313,7 +310,7 @@ static ERL_NIF_TERM espotify_load_image(ErlNifEnv* env, int argc, const ERL_NIF_
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_load_image(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -371,7 +368,7 @@ static ERL_NIF_TERM espotify_search(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     } else
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     spotifyctl_search(query, (void *)reference);
@@ -383,7 +380,7 @@ static ERL_NIF_TERM espotify_load_playlistcontainer(ErlNifEnv* env, int argc, co
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     char *error_msg;
@@ -404,7 +401,7 @@ static ERL_NIF_TERM espotify_load_user_playlistcontainer(ErlNifEnv* env, int arg
     if (enif_get_string(env, argv[0], name, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_user_playlistcontainer(name, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -424,7 +421,7 @@ static ERL_NIF_TERM espotify_load_playlist(ErlNifEnv* env, int argc, const ERL_N
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_playlist(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -439,10 +436,10 @@ static ERL_NIF_TERM espotify_debug(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM *reference = async_make_ref(priv->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
-    esp_debug(priv->session->async_state, reference);
+    esp_debug(priv->async_state, reference);
 
     //return make_atom(env, "ok");
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
@@ -453,17 +450,26 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     espotify_private* data = (espotify_private *)enif_alloc(sizeof(espotify_private));
 
-    data->session = 0;
+    data->session = NULL;
+    data->async_state = async_start();
+
     *priv_data = data;
+    
     return 0;
 }
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
     espotify_private *priv = (espotify_private *)priv_data;
+
     if (priv->session) {
         do_stop(priv);
     }
+
+    // wait for async thread to exit
+    async_stop(priv->async_state);
+    priv->async_state = NULL;
+    
     //enif_free(priv);
 }
 
