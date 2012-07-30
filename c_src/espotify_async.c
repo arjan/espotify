@@ -133,7 +133,8 @@ thr_main(void* obj)
     {
         enif_send(NULL, &state->pid, state->env, item->term);
         enif_free(item);
-        enif_clear_env(state->env);
+        if (state->queue->tail == NULL || state->queue->tail->next == NULL)
+            enif_clear_env(state->env);
     }
 
     return NULL;

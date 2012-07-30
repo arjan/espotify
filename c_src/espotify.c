@@ -236,7 +236,7 @@ static ERL_NIF_TERM espotify_track_info(ErlNifEnv* env, int argc, const ERL_NIF_
         return enif_make_badarg(env);
 
 
-    ERL_NIF_TERM *reference = obtain_reference(env); //FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_track_info(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -257,7 +257,7 @@ static ERL_NIF_TERM espotify_browse_album(ErlNifEnv* env, int argc, const ERL_NI
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); //FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_album(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -293,7 +293,7 @@ static ERL_NIF_TERM espotify_browse_artist(ErlNifEnv* env, int argc, const ERL_N
         return enif_make_badarg(env);
     }
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_browse_artist(link, type, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -313,7 +313,7 @@ static ERL_NIF_TERM espotify_load_image(ErlNifEnv* env, int argc, const ERL_NIF_
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     if (spotifyctl_load_image(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -371,7 +371,7 @@ static ERL_NIF_TERM espotify_search(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     } else
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     spotifyctl_search(query, (void *)reference);
@@ -383,7 +383,7 @@ static ERL_NIF_TERM espotify_load_playlistcontainer(ErlNifEnv* env, int argc, co
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
     char *error_msg;
@@ -404,7 +404,7 @@ static ERL_NIF_TERM espotify_load_user_playlistcontainer(ErlNifEnv* env, int arg
     if (enif_get_string(env, argv[0], name, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_user_playlistcontainer(name, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -424,7 +424,7 @@ static ERL_NIF_TERM espotify_load_playlist(ErlNifEnv* env, int argc, const ERL_N
     if (enif_get_string(env, argv[0], link, MAX_LINK, ERL_NIF_LATIN1) < 1)
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM *reference = obtain_reference(env); // FIXME
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
     ERL_NIF_TERM myref = enif_make_copy(env, *reference);
     
     if (spotifyctl_load_playlist(link, (void *)reference, &error_msg) == CMD_RESULT_ERROR) {
@@ -439,13 +439,13 @@ static ERL_NIF_TERM espotify_debug(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     espotify_private *priv = (espotify_private *)enif_priv_data(env);
     ASSERT_STARTED(priv);
 
-    //ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
-    //ERL_NIF_TERM myref = enif_make_copy(env, *reference);
+    ERL_NIF_TERM *reference = async_make_ref(priv->session->async_state);
+    ERL_NIF_TERM myref = enif_make_copy(env, *reference);
 
-    //esp_debug(priv->session->async_state, NULL);
+    esp_debug(priv->session->async_state, reference);
 
-    return make_atom(env, "ok");
-    //return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
+    //return make_atom(env, "ok");
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), myref);
 }
 
 

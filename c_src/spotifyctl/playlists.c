@@ -1,4 +1,5 @@
 #include <libspotify/api.h>
+#include <stdlib.h> /* malloc */
 
 #include "spotifyctl.h"
 #include "../espotify_callbacks.h"

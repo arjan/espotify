@@ -32,7 +32,7 @@ test_debug(_) ->
     ct:print("~p", [start]),
     ok = espotify_nif:set_pid(self()),
     [begin
-         espotify_nif:debug()
-         %expect_callback(debug)
-     end || _ <- lists:seq(0,10000000)],
+         espotify_nif:debug(),
+         expect_callback(debug)
+     end || _ <- lists:seq(0,100000)],
     ct:print("~p", [ok]).

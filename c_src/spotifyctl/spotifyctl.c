@@ -409,7 +409,6 @@ void spotifyctl_search(spotifyctl_search_query query, void *reference)
 
 void load_queue_add(load_queue_type type, void *reference, sp_track *track, sp_playlist *playlist)
 {
-
     spotifyctl_load_queue *item = (spotifyctl_load_queue *)malloc(sizeof(spotifyctl_load_queue));
     item->type = type;
     item->track = track;
