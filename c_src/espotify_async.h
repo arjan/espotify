@@ -24,6 +24,7 @@ typedef struct
     ErlNifPid           pid; /* the calling process for sending async feedback. */
     ErlNifEnv*          env;
     ErlNifEnv*          ref_env;
+    int                 ref_cnt;
 } async_state_t;
 
 void async_set_pid(async_state_t *state, ErlNifPid pid);

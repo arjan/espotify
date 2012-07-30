@@ -34,5 +34,5 @@ test_debug(_) ->
     [begin
          espotify_nif:debug(),
          expect_callback(debug)
-     end || _ <- lists:seq(0,100000)],
+     end || _ <- lists:seq(0,1000000)],
     ct:print("~p", [ok]).

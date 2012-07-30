@@ -176,7 +176,7 @@ void esp_player_search_feedback(void *st, sp_session *session, void *refptr, sp_
 void esp_player_load_playlistcontainer_feedback(void *st, sp_session *session, void *refptr, sp_playlistcontainer *container)
 {
     DBG("PL container load");
-    return;
+
     async_state_t *state = (async_state_t *)st;
     ErlNifEnv* env = async_env_acquire(state);
 
@@ -196,7 +196,8 @@ void esp_player_load_playlistcontainer_feedback(void *st, sp_session *session, v
                     enif_make_tuple2(
                         env,
                         ref,
-                        playlistcontainer_tuple(env, session, container))
+                        playlistcontainer_tuple(env, session, container)
+                        )
                 )
             )
         );

@@ -128,13 +128,19 @@ thr_main(void* obj)
 
     state->env = enif_alloc_env();
     state->ref_env = enif_alloc_env();
+    state->ref_cnt = 0;
+    
     state->queue->stopping = 0;
     while((item = queue_pop(state->queue)) != NULL)
     {
         enif_send(NULL, &state->pid, state->env, item->term);
         enif_free(item);
-        if (state->queue->tail == NULL || state->queue->tail->next == NULL)
+        if (state->queue->tail == NULL || state->queue->tail->next == NULL) {
             enif_clear_env(state->env);
+        }
+        if (state->ref_cnt == 0) {
+            enif_clear_env(state->ref_env);
+        }
     }
 
     return NULL;
@@ -203,6 +209,7 @@ ERL_NIF_TERM *async_make_ref(async_state_t *state)
 {
     ERL_NIF_TERM *r = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM));
     *r = enif_make_ref(state->ref_env);
+    state->ref_cnt++;
     return r;
 }
 
@@ -211,5 +218,6 @@ ERL_NIF_TERM async_return_ref(async_state_t *state, ERL_NIF_TERM *refptr)
     // Copy the reference to the enif_send temp environment
     ERL_NIF_TERM ref_term = enif_make_copy(state->ref_env, *refptr);
     enif_free(refptr);
+    state->ref_cnt--;
     return ref_term;
 }
