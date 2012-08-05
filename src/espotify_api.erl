@@ -5,12 +5,20 @@
 %% function has a pid() argument, and a set_pid/1 function is provided
 %% to later change the callback pid.
 %%
+%% Functions that return their actual result asynchronously, return a
+%% <tt>{ok, reference()}</tt> as result. This reference can later be
+%% used to identify the callback message.
+%%
 %% Callback messages are tagged tuples of the form
-%% <pre>{'$spotify_callback', CallbackName::atom(), term()}</pre>,
-%% where CallbackName is an atom named after the C function that
-%% triggered the message; and term is a result term.
+%% <pre>{'$spotify_callback', CallbackName::atom(), term()}</pre>
+%% Where CallbackName is an atom named after the function that
+%% triggered the message; and term is a result term.  The term is
+%% usually a <tt>{ok, {reference(), Result}}</tt> tuple, where the
+%% reference corresponds to the reference returned earlier.
 %%
 %% @author Arjan Scherpenisse
+%%
+
 -module(espotify_api).
 
 -include_lib("espotify.hrl").
@@ -21,7 +29,7 @@
          set_pid/1,
 
          player_load/1,
-         player_prefetch/1,
+         %player_prefetch/1,
          player_play/1,
          player_seek/1,
          player_unload/0,
@@ -66,7 +74,9 @@ init() ->
 %% Spotify session per VM is supported; this is a limitation of
 %% libspotify. The pid given will receive callback messages.
 %%
-%% On successful login, a message <pre>{'$spotify_callback', logged_in, {ok, #sp_user{}}} </pre> will be sent back.
+%% On successful login, a message <pre>{'$spotify_callback', logged_in, {ok, espotify:sp_user()}} </pre> will be sent back.
+%%
+%% @see espotify:sp_user()
 -spec start(CallbackPid::pid(),
             CacheLocation::string(), SettingsLocation::string(),
             Username::string(), Password::string()) -> ok | {error, already_started}.
@@ -93,6 +103,7 @@ set_pid(_) ->
 player_load(_Track) ->
     ?NOT_LOADED.
 
+%% @doc Start prefetching the audio data for a track so it is cached for playback.
 player_prefetch(_Track) ->
     ?NOT_LOADED.
 
@@ -112,7 +123,7 @@ player_unload() ->
     ?NOT_LOADED.
 
 %% @doc Returns the currently playing track.
--spec player_current_track() -> #sp_track{} | undefined.
+-spec player_current_track() -> espotify:sp_track() | undefined.
 player_current_track() ->
     ?NOT_LOADED.
 
@@ -121,7 +132,9 @@ player_current_track() ->
 %% will include the same reference value so it can be mapped back.
 %% 
 %% Format of the callback structure:
-%% <pre>{'$spotify_callback', track_info, {ok, {reference(), #sp_track{}}}} </pre>
+%% <pre>{'$spotify_callback', track_info, {ok, {reference(), espotify:sp_track()}}} </pre>
+%%
+%% @see espotify:sp_track()
 -spec track_info(string()) -> {ok, reference()}.
 track_info(_) ->
     ?NOT_LOADED.
@@ -129,21 +142,27 @@ track_info(_) ->
 
 %% @doc Browse information about an album, asynchronously.
 %%
-%% <pre>{'$spotify_callback', browse_album, {ok, {reference(), #sp_albumbrowse{}}}} </pre>
+%% <pre>{'$spotify_callback', browse_album, {ok, {reference(), espotify:sp_albumbrowse()}}} </pre>
+%%
+%% @see espotify:sp_albumbrowse()
 -spec browse_album(string()) -> {ok, reference()}.
 browse_album(_) ->
     ?NOT_LOADED.
 
 %% @doc Browse information about an artist, asynchronously.
 %%
-%% <pre>{'$spotify_callback', browse_artist, {ok, {reference(), #sp_artistbrowse{}}}} </pre>
+%% <pre>{'$spotify_callback', browse_artist, {ok, {reference(), espotify:sp_artistbrowse()}}} </pre>
+%%
+%% @see espotify:sp_artistbrowse()
 -spec browse_artist(string(), full | no_tracks | no_albums) -> {ok, reference()}.
 browse_artist(_, _) ->
     ?NOT_LOADED.
 
 %% @doc Load image from link, asynchronously
 %%
-%% <pre>{'$spotify_callback', load_image, {ok, {reference(), #sp_image{}}}} </pre>
+%% <pre>{'$spotify_callback', load_image, {ok, {reference(), espotify:sp_image()}}} </pre>
+%%
+%% @see espotify:sp_image()
 -spec load_image(string()) -> {ok, reference()}.
 load_image(_) ->
     ?NOT_LOADED.
@@ -151,14 +170,18 @@ load_image(_) ->
 
 %% @doc Do a search request
 %%
-%% <pre>{'$spotify_callback', search, {ok, {reference(), #sp_search_result{}}}} </pre>
--spec search(#sp_search_result{}) -> {ok, reference()}.
+%% <pre>{'$spotify_callback', search, {ok, {reference(), espotify:sp_search_result()}}} </pre>
+%%
+%% @see espotify:sp_search_result()
+-spec search(espotify:sp_search_query()) -> {ok, reference()}.
 search(_) ->
     ?NOT_LOADED.
 
 %% @doc Load the playlist container of the current user.
 %%
-%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
+%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), espotify:sp_playlistcontainer()}}} </pre>
+%%
+%% @see espotify:sp_playlistcontainer()
 -spec load_playlistcontainer() -> {ok, reference()}.
 load_playlistcontainer() ->
     ?NOT_LOADED.
@@ -166,7 +189,9 @@ load_playlistcontainer() ->
 
 %% @doc Load the playlist container of a user (by canonical name)
 %%
-%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), #sp_playlistcontainer{}}}} </pre>
+%% <pre>{'$spotify_callback', load_playlistcontainer, {ok, {reference(), espotify:sp_playlistcontainer()}}} </pre>
+%%
+%% @see espotify:sp_playlistcontainer()
 -spec load_user_playlistcontainer(string()) -> {ok, reference()}.
 load_user_playlistcontainer(_) ->
     ?NOT_LOADED.
@@ -174,7 +199,9 @@ load_user_playlistcontainer(_) ->
 
 %% @doc Load given playlist.
 %%
-%% <pre>{'$spotify_callback', load_playlist, {ok, {reference(), #sp_playlist{}}}} </pre>
+%% <pre>{'$spotify_callback', load_playlist, {ok, {reference(), espotify:sp_playlist()}}} </pre>
+%%
+%% @see espotify:sp_playlist()
 -spec load_playlist(string()) -> {ok, reference()}.
 load_playlist(_) ->
     ?NOT_LOADED.
