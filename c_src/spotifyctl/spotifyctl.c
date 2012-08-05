@@ -12,6 +12,9 @@
 #include "spotifyctl.h"
 #include "../espotify_callbacks.h"
 
+#define DBG(x) fprintf(stderr, "DEBUG: " x "\n");
+#define DBG2(fmt, x) fprintf(stderr, "DEBUG: " fmt "\n", x);
+
 // see appkey.c
 extern const char g_appkey[];
 extern const size_t g_appkey_size;
@@ -32,8 +35,8 @@ static void logged_in(sp_session *sess, sp_error error)
         return;
     }
 
-    g_state.playlistcontainer = sp_session_playlistcontainer(g_state.session);
-    load_container(g_state.playlistcontainer, NULL);
+    sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
+    load_container(pc, NULL);
 
     esp_logged_in_feedback(g_state.async_state, g_state.session, sp_session_user(g_state.session));
 }
@@ -470,11 +473,8 @@ void load_queue_check()
 
 void spotifyctl_stop()
 {
-    if (g_state.current_track != NULL) {
-        sp_session_player_unload(g_state.session);
-        g_state.current_track = NULL;
-    }
-    sp_session_logout(g_state.session);
+    char *error_msg;
+    spotifyctl_do_cmd0(CMD_STOP, &error_msg);
 }
 
 int spotifyctl_run(void *async_state,
@@ -554,6 +554,7 @@ int spotifyctl_run(void *async_state,
             pthread_mutex_unlock(&g_state.notify_mutex);
 
             do {
+//                fprintf(stderr, "sess: %p\n", g_state.session);
                 sp_session_process_events(g_state.session, &next_timeout);
             } while (g_state.running && next_timeout == 0);
             pthread_mutex_lock(&g_state.notify_mutex);
@@ -569,6 +570,16 @@ int spotifyctl_run(void *async_state,
 
             switch (cmd)
             {
+            case CMD_STOP:
+    
+                // Cleaning up
+                if (g_state.current_track != NULL) {
+                    sp_session_player_unload(g_state.session);
+                    g_state.current_track = NULL;
+                }
+                sp_session_logout(g_state.session);
+
+                break;
             case CMD_PLAYER_LOAD:
                 handle_cmd_player_load();
                 break;
@@ -598,13 +609,6 @@ int spotifyctl_run(void *async_state,
 
             pthread_mutex_lock(&g_state.notify_mutex);
         }
-    }
-
-    // Cleaning up
-    if (g_state.playlistcontainer) {
-        //sp_playlistcontainer_remove_callbacks(g_state.playlistcontainer, &pc_callbacks, NULL);
-        sp_playlistcontainer_release(g_state.playlistcontainer);
-        g_state.playlistcontainer = NULL;
     }
 
     // clear the state

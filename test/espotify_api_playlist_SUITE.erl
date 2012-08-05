@@ -9,7 +9,7 @@
 
 all() ->
     [
-%     test_load_playlistcontainer,
+     test_load_playlistcontainer,
 %     test_load_user_playlistcontainer,
      test_load_playlist
     ].

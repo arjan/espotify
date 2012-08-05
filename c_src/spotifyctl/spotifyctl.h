@@ -99,9 +99,6 @@ typedef struct {
     // The global session handle
     sp_session *session;
 
-    // The playlist container
-    sp_playlistcontainer *playlistcontainer;
-
     // The currently playing track
     sp_track *current_track;
     // Currently loading track for player_load()

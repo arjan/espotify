@@ -175,8 +175,6 @@ void esp_player_search_feedback(void *st, sp_session *session, void *refptr, sp_
 
 void esp_player_load_playlistcontainer_feedback(void *st, sp_session *session, void *refptr, sp_playlistcontainer *container)
 {
-    DBG("PL container load");
-
     async_state_t *state = (async_state_t *)st;
     ErlNifEnv* env = async_env_acquire(state);
 

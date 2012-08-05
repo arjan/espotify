@@ -1,8 +1,12 @@
 #include <libspotify/api.h>
 #include <stdlib.h> /* malloc */
+#include <stdio.h> /* fprintf */
 
 #include "spotifyctl.h"
 #include "../espotify_callbacks.h"
+
+#define DBG(x) fprintf(stderr, "DEBUG: " x "\n");
+#define DBG2(fmt, x) fprintf(stderr, "DEBUG: " fmt "\n", x);
 
 extern spotifyctl_state g_state;
 
@@ -143,6 +147,8 @@ static sp_playlist_callbacks load_pc_playlist_callbacks = {
 
 /* --------------------  PLAYLIST CONTAINER CALLBACKS  --------------------- */
 
+sp_playlistcontainer_callbacks pc_callbacks;
+
 static void container_loaded(sp_playlistcontainer *pc, void *userdata)
 {
     int i;
@@ -157,15 +163,18 @@ static void container_loaded(sp_playlistcontainer *pc, void *userdata)
             }
         }        
     }
+
+    sp_playlistcontainer_remove_callbacks(pc, &pc_callbacks, userdata);
+    
     if (all_loaded) {
         container_load_data *data = (container_load_data *)userdata;
         esp_player_load_playlistcontainer_feedback(g_state.async_state, g_state.session, data->reference, pc);
-        sp_playlistcontainer_release(pc);
         free(data);
     }
+
 }
 
-static sp_playlistcontainer_callbacks pc_callbacks = {
+sp_playlistcontainer_callbacks pc_callbacks = {
     .playlist_added = 0,//&playlist_added,
     .playlist_removed = 0,//&playlist_removed,
     .playlist_moved = 0,//&playlist_removed,
@@ -187,7 +196,6 @@ void load_container(sp_playlistcontainer *container, void *reference) {
     load_data->container = container;
     load_data->reference = reference;
 
-    sp_playlistcontainer_add_ref(container);
     sp_playlistcontainer_add_callbacks(container, &pc_callbacks, load_data);
 }
 
@@ -206,14 +214,6 @@ int spotifyctl_load_user_playlistcontainer(const char *user, void *reference, ch
 
 int spotifyctl_load_playlistcontainer(void *reference, char **error_msg)
 {
-    if (!g_state.playlistcontainer) {
-        *error_msg = "Not logged in";
-        return CMD_RESULT_ERROR;
-    }
-
-    sp_playlistcontainer_add_ref(g_state.playlistcontainer);
-    load_container(g_state.playlistcontainer, NULL);
-
     return CMD_RESULT_OK;
 }
 

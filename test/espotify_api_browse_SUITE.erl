@@ -9,10 +9,10 @@
 
 all() ->
     [
-     test_track_info,
-     test_browse_album,
-     test_browse_artist,
-     test_browse_artist_full
+%     test_track_info,
+     test_browse_album
+%     test_browse_artist,
+%     test_browse_artist_full
 %     test_image
     ].
 
