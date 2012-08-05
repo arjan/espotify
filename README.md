@@ -49,12 +49,12 @@ The library is highly asynchronous by nature. After most commands you
 need to wait for a response from spotify before you can issue the
 next, as you can see in the following example:
 
-    espotify_nif:start(self(), "/tmp/espotify", "/tmp/espotify", "username", "password"),
+    espotify_api:start(self(), "/tmp/espotify", "/tmp/espotify", "username", "password"),
     receive
         {'$spotify_callback', logged_in, {ok, _User}} ->
             ok
     end,
-    case espotify_nif:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
+    case espotify_api:player_load("spotify:track:6JEK0CvvjDjjMUBFoXShNZ") of
         loading -> % wait for track to load
             receive
                 {'$spotify_callback', player_load, loaded} ->
@@ -63,7 +63,7 @@ next, as you can see in the following example:
         ok -> % already loaded
             ok
     end,
-    espotify_nif:player_play(true).
+    espotify_api:player_play(true).
 
 This logs you in to Spotify, waits for an 'ok' message from the
 library; load a track, wait for it to be loaded, and finally plays

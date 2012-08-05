@@ -29,7 +29,7 @@
          set_pid/1,
 
          player_load/1,
-         %player_prefetch/1,
+         player_prefetch/1,
          player_play/1,
          player_seek/1,
          player_unload/0,
