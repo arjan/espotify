@@ -7,8 +7,17 @@ Current state
 -------------
 
 This library is experimental, and a work in progress. Its end goal is
-to cover the entire API of libspotify, but currently it is far from
-complete. Use at your own risk! :-)
+to cover the entire API of libspotify. The coverage so far:
+
+ * Playback of audio (uses native audio library; Alsa or Coreaudio)
+ * Browse album
+ * Browse artist
+ * Get playlist information
+ * Search tracks/artists/playlists
+ * Get image data (for artist portraits, covers)
+
+The things missing are mostly playlist and playlist container
+management.
 
 
 Installation and setup
