@@ -7,6 +7,5 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { espotify_app, []}},
   {env, []}
  ]}.

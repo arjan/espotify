@@ -4,13 +4,13 @@ init_per_suite(_Config) ->
     {ok, Username} = application:get_env(espotify, username),
     {ok, Password} = application:get_env(espotify, password),
     {ok, TmpDir} = application:get_env(espotify, tmp_dir),
-    ok = espotify_nif:start(self(), TmpDir, TmpDir, Username, Password),
+    ok = espotify_api:start(self(), TmpDir, TmpDir, Username, Password),
     expect_callback(logged_in),
     _Config.
 
 end_per_suite(_Config) ->
     flush_messages(),
-    espotify_nif:stop(),
+    espotify_api:stop(),
     _Config.
 
 flush_messages() ->

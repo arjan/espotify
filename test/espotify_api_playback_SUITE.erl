@@ -1,5 +1,5 @@
 
--module(espotify_nif_playback_SUITE).
+-module(espotify_api_playback_SUITE).
 
 -compile(export_all).
 
@@ -18,15 +18,15 @@ all() ->
 
 
 test_player_no_current_track(_) ->
-    ok = espotify_nif:set_pid(self()),
-    {error, no_current_track} = espotify_nif:player_play(true),
-    {error, no_current_track} = espotify_nif:player_seek(112),
-    {error, no_current_track} = espotify_nif:player_unload().
+    ok = espotify_api:set_pid(self()),
+    {error, no_current_track} = espotify_api:player_play(true),
+    {error, no_current_track} = espotify_api:player_seek(112),
+    {error, no_current_track} = espotify_api:player_unload().
 
 test_player_load(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
     Link = "spotify:track:6JEK0CvvjDjjMUBFoXShNZ",
-    CurrentTrack = case espotify_nif:player_load(Link) of
+    CurrentTrack = case espotify_api:player_load(Link) of
                        loading ->
                            {ok, T} = expect_callback(player_load),
                            T;
@@ -43,39 +43,39 @@ test_player_load(_) ->
 
 %% @doc Some tests really rely on a human actually listening to the sound...
 test_player_play(_) ->
-    ok = espotify_nif:set_pid(self()),
-    ok = espotify_nif:player_play(true),
+    ok = espotify_api:set_pid(self()),
+    ok = espotify_api:player_play(true),
     ct:print("Now playing!"),
     timer:sleep(3000),
-    ok = espotify_nif:player_play(false),
+    ok = espotify_api:player_play(false),
     timer:sleep(2000),
     ok.
 
 
 test_player_seek(_) ->
-    ok = espotify_nif:set_pid(self()),
-    ok = espotify_nif:player_play(true),
-    ok = espotify_nif:player_seek(5000),
+    ok = espotify_api:set_pid(self()),
+    ok = espotify_api:player_play(true),
+    ok = espotify_api:player_seek(5000),
     timer:sleep(1000),
-    ok = espotify_nif:player_seek(5000),
+    ok = espotify_api:player_seek(5000),
     timer:sleep(1000),
-    ok = espotify_nif:player_play(false),
+    ok = espotify_api:player_play(false),
     ok.
 
 %% @doc Seek to 500ms before end of track, wait for the EOT callback.
 test_player_end_of_track(_) ->
-    ok = espotify_nif:set_pid(self()),
-    {ok, T} = espotify_nif:player_current_track(),
+    ok = espotify_api:set_pid(self()),
+    {ok, T} = espotify_api:player_current_track(),
     Duration = T#sp_track.duration,
-    ok = espotify_nif:player_seek(Duration-500),
-    ok = espotify_nif:player_play(true),
+    ok = espotify_api:player_seek(Duration-500),
+    ok = espotify_api:player_play(true),
     end_of_track = expect_callback(player_play),
-    undefined = espotify_nif:player_current_track(),
+    undefined = espotify_api:player_current_track(),
     ok.
 
 test_player_unload(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
     Link = "spotify:track:6JEK0CvvjDjjMUBFoXShNZ",
-    ok = espotify_nif:player_load(Link), %% second load should be instantaneous; cached in libspotify.
-    ok = espotify_nif:player_unload(),
-    {error, no_current_track} = espotify_nif:player_unload().
+    ok = espotify_api:player_load(Link), %% second load should be instantaneous; cached in libspotify.
+    ok = espotify_api:player_unload(),
+    {error, no_current_track} = espotify_api:player_unload().

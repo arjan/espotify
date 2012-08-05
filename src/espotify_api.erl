@@ -11,7 +11,7 @@
 %% triggered the message; and term is a result term.
 %%
 %% @author Arjan Scherpenisse
--module(espotify_nif).
+-module(espotify_api).
 
 -include_lib("espotify.hrl").
 
@@ -48,17 +48,17 @@ init() ->
                  {error, bad_name} ->
                      case filelib:is_dir(filename:join(["..", "priv"])) of
                          true ->
-                             filename:join(["..", "priv", "espotify_nif"]);
+                             filename:join(["..", "priv", "espotify_api"]);
                          false ->
                              case filelib:is_dir(filename:join(["..", "..", "priv"])) of
                                  true ->
-                                     filename:join(["..", "..", "priv", "espotify_nif"]);
+                                     filename:join(["..", "..", "priv", "espotify_api"]);
                                  false ->
-                                     filename:join(["priv", "espotify_nif"])
+                                     filename:join(["priv", "espotify_api"])
                              end
                      end;
                  Dir ->
-                     filename:join(Dir, "espotify_nif")
+                     filename:join(Dir, "espotify_api")
              end,
     ok = erlang:load_nif(SoName, 0).
 

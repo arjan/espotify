@@ -499,4 +499,4 @@ static ErlNifFunc nif_funcs[] =
     
 };
 
-ERL_NIF_INIT(espotify_nif,nif_funcs,load,NULL,NULL,unload)
+ERL_NIF_INIT(espotify_api,nif_funcs,load,NULL,NULL,unload)

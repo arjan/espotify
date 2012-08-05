@@ -1,5 +1,5 @@
 
--module(espotify_nif_search_SUITE).
+-module(espotify_api_search_SUITE).
 
 -compile(export_all).
 
@@ -16,11 +16,11 @@ all() ->
 
 
 test_search_track(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {'EXIT', {badarg, _}} = (catch espotify_nif:search(foo)),
+    {'EXIT', {badarg, _}} = (catch espotify_api:search(foo)),
 
-    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Paul Simon", track_count=2}),
+    {ok, Ref1} = espotify_api:search(#sp_search_query{q="Paul Simon", track_count=2}),
     {ok, {Ref1, R}} = expect_callback(search),
 
     2 = length(R#sp_search_result.tracks),
@@ -31,11 +31,11 @@ test_search_track(_) ->
     ok.
 
 test_search_album(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {'EXIT', {badarg, _}} = (catch espotify_nif:search(foo)),
+    {'EXIT', {badarg, _}} = (catch espotify_api:search(foo)),
 
-    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Paul Simon", album_count=2}),
+    {ok, Ref1} = espotify_api:search(#sp_search_query{q="Paul Simon", album_count=2}),
     {ok, {Ref1, R}} = expect_callback(search),
 
     2 = length(R#sp_search_result.albums),
@@ -47,11 +47,11 @@ test_search_album(_) ->
 
 
 test_search_artist(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {'EXIT', {badarg, _}} = (catch espotify_nif:search(foo)),
+    {'EXIT', {badarg, _}} = (catch espotify_api:search(foo)),
 
-    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Britney", artist_count=2}),
+    {ok, Ref1} = espotify_api:search(#sp_search_query{q="Britney", artist_count=2}),
     {ok, {Ref1, R}} = expect_callback(search),
     ct:print("~p", [R]),
     
@@ -63,9 +63,9 @@ test_search_artist(_) ->
 
 
 test_search_playlist(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {ok, Ref1} = espotify_nif:search(#sp_search_query{q="Britney", playlist_count=2}),
+    {ok, Ref1} = espotify_api:search(#sp_search_query{q="Britney", playlist_count=2}),
     {ok, {Ref1, R}} = expect_callback(search),
     ct:print("~p", [R]),
     

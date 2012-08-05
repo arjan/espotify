@@ -1,5 +1,5 @@
 
--module(espotify_nif_browse_SUITE).
+-module(espotify_api_browse_SUITE).
 
 -compile(export_all).
 
@@ -17,12 +17,12 @@ all() ->
     ].
 
 test_track_info(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {error, <<"Parsing link failed">>} = espotify_nif:track_info("fdsalfjdsaflldsafads"),
+    {error, <<"Parsing link failed">>} = espotify_api:track_info("fdsalfjdsaflldsafads"),
 
     %% Get info for a track
-    {ok, Ref1} = espotify_nif:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
+    {ok, Ref1} = espotify_api:track_info("spotify:track:42H8K72L4HggbJgGAwqWgT"),
     %% Wait for the callback with the track info
     {ok, {Ref1, T=#sp_track{}}} = expect_callback(track_info),
 
@@ -39,10 +39,10 @@ test_track_info(_) ->
     "spotify:artist:3FTKP1k9VbOng3m1rgnsqx" = Artist#sp_artist.link,
 
     %% load some more
-    {ok, _} = espotify_nif:track_info("spotify:track:2feyopBofIiN35tyhGtlZD"),
-    {ok, _} = espotify_nif:track_info("spotify:track:4vrcVOWlA2B1pMAMmohaeL"),
-    {ok, _} = espotify_nif:track_info("spotify:track:5Xs1BaGAJ6tCb79VFfcyeu"),
-    {ok, _} = espotify_nif:track_info("spotify:track:5YKzk2Kfd7ESyaAbQUKjpT"),
+    {ok, _} = espotify_api:track_info("spotify:track:2feyopBofIiN35tyhGtlZD"),
+    {ok, _} = espotify_api:track_info("spotify:track:4vrcVOWlA2B1pMAMmohaeL"),
+    {ok, _} = espotify_api:track_info("spotify:track:5Xs1BaGAJ6tCb79VFfcyeu"),
+    {ok, _} = espotify_api:track_info("spotify:track:5YKzk2Kfd7ESyaAbQUKjpT"),
     {ok, _} = expect_callback(track_info),
     {ok, _} = expect_callback(track_info),
     {ok, _} = expect_callback(track_info),
@@ -52,12 +52,12 @@ test_track_info(_) ->
 
 
 test_browse_album(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {error, <<"Parsing link failed">>} = espotify_nif:browse_album("fdsalfjdsaflldsafads"),
+    {error, <<"Parsing link failed">>} = espotify_api:browse_album("fdsalfjdsaflldsafads"),
 
     %% Get info for a track
-    {ok, Ref1} = espotify_nif:browse_album("spotify:album:6WgGWYw6XXQyLTsWt7tXky"),
+    {ok, Ref1} = espotify_api:browse_album("spotify:album:6WgGWYw6XXQyLTsWt7tXky"),
     {ok, {Ref1, AlbumBrowse=#sp_albumbrowse{}}} = expect_callback(browse_album),
     
     ct:print("~p", [AlbumBrowse]),
@@ -71,11 +71,11 @@ test_browse_album(_) ->
     ok.
 
 test_browse_artist(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {error, <<"Parsing link failed">>} = espotify_nif:browse_artist("fdsalfjdsaflldsafads", no_tracks),
+    {error, <<"Parsing link failed">>} = espotify_api:browse_artist("fdsalfjdsaflldsafads", no_tracks),
 
-    {ok, Ref1} = espotify_nif:browse_artist("spotify:artist:2CvCyf1gEVhI0mX6aFXmVI", no_tracks),
+    {ok, Ref1} = espotify_api:browse_artist("spotify:artist:2CvCyf1gEVhI0mX6aFXmVI", no_tracks),
     {ok, {Ref1, ArtistBrowse=#sp_artistbrowse{}}} = expect_callback(browse_artist),
     ct:print("~p", [ArtistBrowse]),
 
@@ -86,9 +86,9 @@ test_browse_artist(_) ->
     ok.
 
 test_browse_artist_full(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
 
-    {ok, Ref1} = espotify_nif:browse_artist("spotify:artist:2CvCyf1gEVhI0mX6aFXmVI", full),
+    {ok, Ref1} = espotify_api:browse_artist("spotify:artist:2CvCyf1gEVhI0mX6aFXmVI", full),
     {ok, {Ref1, ArtistBrowse=#sp_artistbrowse{}}} = expect_callback(browse_artist),
     ct:print("~p", [ArtistBrowse]),
 
@@ -100,8 +100,8 @@ test_browse_artist_full(_) ->
 
 
 test_image(_) ->
-    ok = espotify_nif:set_pid(self()),
-    {ok, Ref1} = espotify_nif:load_image("spotify:image:930de222ed6ad8bacf7eacbcb09214818a9e6b3b"),
+    ok = espotify_api:set_pid(self()),
+    {ok, Ref1} = espotify_api:load_image("spotify:image:930de222ed6ad8bacf7eacbcb09214818a9e6b3b"),
     {ok, {Ref1, Image=#sp_image{}}} = expect_callback(load_image),
 
     ok = file:write_file("/tmp/test.jpg", Image#sp_image.data),

@@ -1,5 +1,5 @@
 
--module(espotify_nif_debug_SUITE).
+-module(espotify_api_debug_SUITE).
 
 -compile(export_all).
 
@@ -16,9 +16,9 @@ all() ->
 
 
 test_debug(_) ->
-    ok = espotify_nif:set_pid(self()),
+    ok = espotify_api:set_pid(self()),
     [begin
-         espotify_nif:debug(),
+         espotify_api:debug(),
          expect_callback(debug)
      end || _ <- lists:seq(0,100000)],
     ct:print("~p", [ok]).
