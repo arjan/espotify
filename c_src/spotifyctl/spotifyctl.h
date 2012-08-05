@@ -93,6 +93,9 @@ typedef struct {
     // Non-zero when running the main loop
     int running;
 
+    // Non-zero when we are logged in
+    int logged_in;
+    
     // the async queue for communicating back
     void *async_state;
 

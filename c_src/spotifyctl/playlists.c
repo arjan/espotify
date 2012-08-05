@@ -130,7 +130,7 @@ static void pl_pc_state_change(sp_playlist *pl, void *userdata)
         }
         if (all_loaded) {
             esp_player_load_playlistcontainer_feedback(g_state.async_state, g_state.session, data->reference, pc);
-            sp_playlistcontainer_release(pc);
+            // sp_playlistcontainer_release(pc);
             free(data);
         }
     }
@@ -169,6 +169,7 @@ static void container_loaded(sp_playlistcontainer *pc, void *userdata)
     if (all_loaded) {
         container_load_data *data = (container_load_data *)userdata;
         esp_player_load_playlistcontainer_feedback(g_state.async_state, g_state.session, data->reference, pc);
+        // sp_playlistcontainer_release(pc);
         free(data);
     }
 

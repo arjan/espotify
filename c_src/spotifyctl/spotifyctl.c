@@ -35,6 +35,8 @@ static void logged_in(sp_session *sess, sp_error error)
         return;
     }
 
+    g_state.logged_in = 1;
+    
     sp_playlistcontainer *pc = sp_session_playlistcontainer(g_state.session);
     load_container(pc, NULL);
 
@@ -44,6 +46,7 @@ static void logged_in(sp_session *sess, sp_error error)
 static void logged_out(sp_session *sess)
 {
     g_state.running = 0;
+    g_state.logged_in = 0;
 }
 
 /**
@@ -473,8 +476,17 @@ void load_queue_check()
 
 void spotifyctl_stop()
 {
-    char *error_msg;
-    spotifyctl_do_cmd0(CMD_STOP, &error_msg);
+    // Cleaning up
+    if (g_state.current_track != NULL) {
+        sp_session_player_unload(g_state.session);
+        g_state.current_track = NULL;
+    }
+
+    if (g_state.logged_in) {
+        sp_session_logout(g_state.session);
+    } else {
+        g_state.running = 0;
+    }
 }
 
 int spotifyctl_run(void *async_state,
@@ -519,7 +531,8 @@ int spotifyctl_run(void *async_state,
     sp_session_login(g_state.session, username, password, 0, NULL);
 
     g_state.running = 1; // let's go
-
+    g_state.logged_in = 0;
+    
     //DBG("Enter main loop");
     
     pthread_mutex_lock(&g_state.notify_mutex);
@@ -554,7 +567,6 @@ int spotifyctl_run(void *async_state,
             pthread_mutex_unlock(&g_state.notify_mutex);
 
             do {
-//                fprintf(stderr, "sess: %p\n", g_state.session);
                 sp_session_process_events(g_state.session, &next_timeout);
             } while (g_state.running && next_timeout == 0);
             pthread_mutex_lock(&g_state.notify_mutex);
@@ -570,16 +582,6 @@ int spotifyctl_run(void *async_state,
 
             switch (cmd)
             {
-            case CMD_STOP:
-    
-                // Cleaning up
-                if (g_state.current_track != NULL) {
-                    sp_session_player_unload(g_state.session);
-                    g_state.current_track = NULL;
-                }
-                sp_session_logout(g_state.session);
-
-                break;
             case CMD_PLAYER_LOAD:
                 handle_cmd_player_load();
                 break;
@@ -610,7 +612,7 @@ int spotifyctl_run(void *async_state,
             pthread_mutex_lock(&g_state.notify_mutex);
         }
     }
-
+    
     // clear the state
     g_state.running = 0;
     g_state.async_state = NULL;
