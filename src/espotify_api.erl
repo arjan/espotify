@@ -52,7 +52,7 @@
 -on_load(init/0).
 
 init() ->
-    SoName = case code:priv_dir(?MODULE) of
+    SoName = case code:priv_dir(espotify) of
                  {error, bad_name} ->
                      case filelib:is_dir(filename:join(["..", "priv"])) of
                          true ->
