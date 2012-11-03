@@ -21,6 +21,7 @@ extern const size_t g_appkey_size;
 
 spotifyctl_state g_state = {};
 
+void _ensure_unload_track();
 
 /* ---------------------------  SESSION CALLBACKS  ------------------------- */
 /**
@@ -116,8 +117,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
  */
 static void end_of_track(sp_session *sess)
 {
-    sp_track_release(g_state.current_track);
-    g_state.current_track = NULL;
+    _ensure_unload_track();
     esp_atom_feedback(g_state.async_state, "player_play", "end_of_track");
 }
 
@@ -155,11 +155,8 @@ static void metadata_updated(sp_session *sess)
 static void play_token_lost(sp_session *sess)
 {
     audio_fifo_flush(&g_state.audiofifo);
-
-    if (g_state.current_track != NULL) {
-        sp_session_player_unload(g_state.session);
-        g_state.current_track = NULL;
-    }
+    _ensure_unload_track();
+    esp_atom_feedback(g_state.async_state, "player_play", "play_token_lost");
 }
 
 /**
@@ -477,10 +474,7 @@ void load_queue_check()
 void spotifyctl_stop()
 {
     // Cleaning up
-    if (g_state.current_track != NULL) {
-        sp_session_player_unload(g_state.session);
-        g_state.current_track = NULL;
-    }
+    _ensure_unload_track();
 
     if (g_state.logged_in) {
         sp_session_logout(g_state.session);
@@ -594,11 +588,7 @@ int spotifyctl_run(void *async_state,
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
             case CMD_PLAYER_UNLOAD:
-                sp_session_player_unload(g_state.session);
-                if (g_state.current_track != NULL) {
-                    sp_track_release(g_state.current_track);
-                    g_state.current_track = 0;
-                }
+                _ensure_unload_track();
                 g_state.cmd_result = CMD_RESULT_OK;
                 break;
 
@@ -640,3 +630,12 @@ int spotifyctl_run(void *async_state,
     return 0;
 }
 
+
+void _ensure_unload_track()
+{
+    if (g_state.current_track != NULL) {
+        sp_session_player_unload(g_state.session);
+        sp_track_release(g_state.current_track);
+        g_state.current_track = NULL;
+    }
+}

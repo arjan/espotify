@@ -33,7 +33,7 @@ void esp_error_feedback(void *st, const char *callback_name, char *msg_in)
             ));
 }
 
-void esp_atom_feedback(void *st, const char *callback_name, char *atom_in)
+void esp_atom_feedback(void *st, const char *callback_name, const char *atom_in)
 {
     async_state_t *state = (async_state_t *)st;
     ErlNifEnv* env = async_env_acquire(state);
